@@ -50,6 +50,9 @@ class create_post:
             identifier2=self.id,
             identifier3=self.author.id,
         ).favorite
+        if self.isFavorite:
+            return None
+
         results = await self.user.session_manager.json_request(link, method="POST")
         self.isFavorite = True
         return results

@@ -55,6 +55,7 @@ try:
                 elif loop_timeout:
                     print("Pausing scraper for " + loop_timeout + " seconds.")
                     time.sleep(int(loop_timeout))
+                    json_settings = json_config["settings"]
 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(main())

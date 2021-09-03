@@ -63,7 +63,7 @@ async def remove_errors(results: list):
 
 
 def chunks(l, n):
-    final = [l[i * n : (i + 1) * n] for i in range((len(l) + n - 1) // n)]
+    final = [l[i * n: (i + 1) * n] for i in range((len(l) + n - 1) // n)]
     return final
 
 
@@ -216,7 +216,8 @@ class session_manager:
 
         async def run(links) -> list:
             proxies = self.proxies
-            proxy = self.proxies[randint(0, len(proxies) - 1)] if proxies else ""
+            proxy = self.proxies[randint(
+                0, len(proxies) - 1)] if proxies else ""
             connector = ProxyConnector.from_url(proxy) if proxy else None
             async with ClientSession(
                 connector=connector,
@@ -224,13 +225,40 @@ class session_manager:
                 read_timeout=None,
             ) as session:
                 for link in links:
-                    task = asyncio.ensure_future(self.json_request(link, session))
+                    task = asyncio.ensure_future(
+                        self.json_request(link, session))
                     tasks.append(task)
                 responses = list(await asyncio.gather(*tasks))
                 return responses
 
         results = await asyncio.ensure_future(run(items))
         return results
+
+    async def send_like(
+        self,
+        download_item: template_media_table,
+        session: ClientSession,
+        subscription: create_user
+    ):
+        post = await subscription.get_post(download_item.post_id)
+        if post:
+
+            result = await post.favorite()
+        return post.isFavorite
+#        if not download_item.liked:
+#            response: ClientResponse
+#            response = await asyncio.ensure_future(
+#                self.json_request(
+#                    "https://onlyfans.com/api2/v2/{}/191298230/favorites/{}".format(download_item.api_type,download_item.post_id),
+#                    session,
+#                    "POST",
+#                    json_format=False,
+#                    stream=True,
+#                )
+#            )
+#
+#            if response and response.status != 200:
+#                print("Post Liked")
 
     async def download_content(
         self,
@@ -309,11 +337,13 @@ class session_manager:
         sha_1_sign = hash_object.hexdigest()
         sha_1_b = sha_1_sign.encode("ascii")
         checksum = (
-            sum([sha_1_b[number] for number in dynamic_rules["checksum_indexes"]])
+            sum([sha_1_b[number]
+                for number in dynamic_rules["checksum_indexes"]])
             + dynamic_rules["checksum_constant"]
         )
         headers = {}
-        headers["sign"] = dynamic_rules["format"].format(sha_1_sign, abs(checksum))
+        headers["sign"] = dynamic_rules["format"].format(
+            sha_1_sign, abs(checksum))
         headers["time"] = final_time
         return headers
 
@@ -349,8 +379,10 @@ def restore_missing_data(master_set2, media_set, split_by):
             offset2 = offset
             limit2 = int(limit / split_by)
             for item in range(1, split_by + 1):
-                link2 = link.replace("limit=" + str(limit), "limit=" + str(limit2))
-                link2 = link2.replace("offset=" + str(offset), "offset=" + str(offset2))
+                link2 = link.replace("limit=" + str(limit),
+                                     "limit=" + str(limit2))
+                link2 = link2.replace(
+                    "offset=" + str(offset), "offset=" + str(offset2))
                 offset2 += limit2
                 new_set.append(link2)
         count += 1

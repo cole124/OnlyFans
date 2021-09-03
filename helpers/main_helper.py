@@ -1,3 +1,4 @@
+from sqlalchemy.sql.functions import session_user
 from database.databases.user_data.models.api_table import api_table
 from apis import api_helper
 import asyncio
@@ -143,7 +144,8 @@ async def async_downloads(
         session_m = subscription.session_manager
         proxies = session_m.proxies
         proxy = (
-            session_m.proxies[random.randint(0, len(proxies) - 1)] if proxies else ""
+            session_m.proxies[random.randint(
+                0, len(proxies) - 1)] if proxies else ""
         )
         connector = ProxyConnector.from_url(proxy) if proxy else None
         async with ClientSession(
@@ -171,7 +173,8 @@ async def async_downloads(
             async def check(
                 download_item: template_media_table, response: ClientResponse
             ):
-                filepath = os.path.join(download_item.directory, download_item.filename)
+                filepath = os.path.join(
+                    download_item.directory, download_item.filename)
                 response_status = False
                 if response.status == 200:
                     response_status = True
@@ -230,9 +233,28 @@ async def async_downloads(
                             await format_image(download_path, timestamp)
                             download_item.size = response.content_length
                             download_item.downloaded = True
+                            if download_item.api_type == 'Posts':
+                                try:
+                                    post = await subscription.get_post(download_item.post_id)
+                                    if post and not post.isFavorite and session_m.auth.extras['settings']['settings']['like_content']:
+                                        result = await post.favorite()
+                                        print(result)
+
+                                    # download_item.liked = await session_m.send_like(download_item, session, subscription)
+                                except Exception as e:
+                                    print(e)
+                            # elif download_item.api_type == 'Stories':
+                                # subscription.get_stories()
+                            #    like_result = await subscription.like(
+                            #        "stories", download_item.post_id)
+                            # elif download_item.api_type == 'Messages':
+                            #    like_result = await subscription.like(
+                            #        "messages", download_item.post_id)
+
                     break
 
-            max_threads = api_helper.calculate_max_threads(session_m.max_threads)
+            max_threads = api_helper.calculate_max_threads(
+                session_m.max_threads)
             download_groups = grouper(max_threads, download_list)
             for download_group in download_groups:
                 tasks = []
@@ -324,7 +346,8 @@ def legacy_database_fixer(database_path, database, database_name, database_exist
             datas.append(new_item)
         print
         database_session.close()
-        export_sqlite2(old_database_path, datas, database_name, legacy_fixer=True)
+        export_sqlite2(old_database_path, datas,
+                       database_name, legacy_fixer=True)
 
 
 async def fix_sqlite(
@@ -361,7 +384,8 @@ async def fix_sqlite(
     for final_metadata in final_metadatas:
         archived_database_path = os.path.join(final_metadata, "Archived.db")
         if os.path.exists(archived_database_path):
-            Session2, engine = db_helper.create_database_session(archived_database_path)
+            Session2, engine = db_helper.create_database_session(
+                archived_database_path)
             database_session: Session = Session2()
             cwd = os.getcwd()
             for api_type, value in items:
@@ -372,9 +396,11 @@ async def fix_sqlite(
                 )
                 result = inspect(engine).has_table(database_name)
                 if result:
-                    db_helper.run_migrations(alembic_location, archived_database_path)
+                    db_helper.run_migrations(
+                        alembic_location, archived_database_path)
                     db_helper.run_migrations(alembic_location, database_path)
-                    Session3, engine2 = db_helper.create_database_session(database_path)
+                    Session3, engine2 = db_helper.create_database_session(
+                        database_path)
                     db_collection = db_helper.database_collection()
                     database_session2: Session = Session3()
                     database = db_collection.database_picker("user_data")
@@ -416,14 +442,16 @@ def export_sqlite2(archive_path, datas, parent_type, legacy_fixer=False):
     database = db_collection.database_picker(database_name)
     if not database:
         return
-    alembic_location = os.path.join(cwd, "database", "databases", database_name)
+    alembic_location = os.path.join(
+        cwd, "database", "databases", database_name)
     database_exists = os.path.exists(database_path)
     if database_exists:
         if os.path.getsize(database_path) == 0:
             os.remove(database_path)
             database_exists = False
     if not legacy_fixer:
-        legacy_database_fixer(database_path, database, database_name, database_exists)
+        legacy_database_fixer(database_path, database,
+                              database_name, database_exists)
     db_helper.run_migrations(alembic_location, database_path)
     print
     Session, engine = db_helper.create_database_session(database_path)
@@ -504,7 +532,8 @@ def legacy_sqlite_updater(
         )
         db_helper.run_migrations(alembic_location, legacy_metadata_path)
         database_name = "user_data"
-        session, engine = db_helper.create_database_session(legacy_metadata_path)
+        session, engine = db_helper.create_database_session(
+            legacy_metadata_path)
         database_session: Session = session()
         db_collection = db_helper.database_collection()
         database = db_collection.database_picker(database_name)
@@ -540,7 +569,8 @@ def export_sqlite(database_path: str, api_type, datas):
     os.makedirs(metadata_directory, exist_ok=True)
     database_name = os.path.basename(database_path).replace(".db", "")
     cwd = os.getcwd()
-    alembic_location = os.path.join(cwd, "database", "databases", database_name.lower())
+    alembic_location = os.path.join(
+        cwd, "database", "databases", database_name.lower())
     db_helper.run_migrations(alembic_location, database_path)
     Session, engine = db_helper.create_database_session(database_path)
     db_collection = db_helper.database_collection()
@@ -581,7 +611,8 @@ def export_sqlite(database_path: str, api_type, datas):
                 continue
             created_at = media["created_at"]
             if not isinstance(created_at, datetime):
-                date_object = datetime.strptime(created_at, "%d-%m-%Y %H:%M:%S")
+                date_object = datetime.strptime(
+                    created_at, "%d-%m-%Y %H:%M:%S")
             else:
                 date_object = postedAt
             media_id = media.get("media_id", None)
@@ -668,7 +699,8 @@ async def reformat(prepared_format: prepare_reformat, unformatted):
     path = path.replace("{date}", date)
     directory_count = len(directory)
     path_count = len(path)
-    maximum_length = maximum_length - (directory_count + path_count - extra_count)
+    maximum_length = maximum_length - \
+        (directory_count + path_count - extra_count)
     text_length = text_length if text_length < maximum_length else maximum_length
     if has_text:
         # https://stackoverflow.com/a/43848928
@@ -809,7 +841,8 @@ def get_config(config_path):
     json_config = make_settings.fix(json_config)
     file_name = os.path.basename(config_path)
     json_config = ujson.loads(
-        json.dumps(make_settings.config(**json_config), default=lambda o: o.__dict__)
+        json.dumps(make_settings.config(**json_config),
+                   default=lambda o: o.__dict__)
     )
     updated = False
     if json_config != json_config2:
@@ -1063,7 +1096,7 @@ def metadata_fixer(directory):
 
 
 def ordinal(n):
-    return "%d%s" % (n, "tsnrhtdd"[(n / 10 % 10 != 1) * (n % 10 < 4) * n % 10 :: 4])
+    return "%d%s" % (n, "tsnrhtdd"[(n / 10 % 10 != 1) * (n % 10 < 4) * n % 10:: 4])
 
 
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
@@ -1098,7 +1131,8 @@ async def send_webhook(
             embed.title = f"Auth {category2.capitalize()}"
             embed.add_field("username", username)
             message.embeds.append(embed)
-            message = ujson.loads(json.dumps(message, default=lambda o: o.__dict__))
+            message = ujson.loads(json.dumps(
+                message, default=lambda o: o.__dict__))
             requests.post(webhook_link, json=message)
     if category == "download_webhook":
         subscriptions: list[create_user] = await item.get_subscriptions(refresh=False)
@@ -1195,7 +1229,8 @@ async def move_to_old(
         os.path.join(x, folder_directory) for x in base_download_directories
     ]
     local_destination = check_space(local_destinations, min_size=100)
-    local_destination = os.path.join(local_destination, first_letter, model_username)
+    local_destination = os.path.join(
+        local_destination, first_letter, model_username)
     print(f"Moving {source} -> {local_destination}")
     shutil.copytree(source, local_destination, dirs_exist_ok=True)
     shutil.rmtree(source)

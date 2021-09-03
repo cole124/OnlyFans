@@ -89,7 +89,8 @@ async def account_setup(
         profile_directory = json_global_settings["profile_directories"][0]
         profile_directory = os.path.abspath(profile_directory)
         profile_directory = os.path.join(profile_directory, authed.username)
-        profile_metadata_directory = os.path.join(profile_directory, "Metadata")
+        profile_metadata_directory = os.path.join(
+            profile_directory, "Metadata")
         metadata_filepath = os.path.join(
             profile_metadata_directory, "Mass Messages.json"
         )
@@ -240,7 +241,8 @@ def scrape_choice(authed: create_auth, subscription):
         final_format = []
         for choice in choice_list:
             choice = choice[1]
-            final_format.extend([result for result in formatted if result[0] == choice])
+            final_format.extend(
+                [result for result in formatted if result[0] == choice])
         new_item["api_array"]["media_types"] = final_format
         new_item["api_type"] = xxx[2]
         if valid_input:
@@ -287,7 +289,8 @@ async def profile_scraper(
             new_dict["links"] = [media_link]
             directory2 = os.path.join(b, media_type)
             os.makedirs(directory2, exist_ok=True)
-            download_path = os.path.join(directory2, media_link.split("/")[-2] + ".jpg")
+            download_path = os.path.join(
+                directory2, media_link.split("/")[-2] + ".jpg")
             response = await authed.session_manager.json_request(
                 media_link, method="HEAD"
             )
@@ -465,7 +468,8 @@ async def process_mass_messages(
     profile_directory = os.path.abspath(profile_directory)
     profile_directory = os.path.join(profile_directory, subscription.username)
     profile_metadata_directory = os.path.join(profile_directory, "Metadata")
-    mass_message_path = os.path.join(profile_metadata_directory, "Mass Messages.json")
+    mass_message_path = os.path.join(
+        profile_metadata_directory, "Mass Messages.json")
     chats_path = os.path.join(profile_metadata_directory, "Chats.json")
     if os.path.exists(chats_path):
         chats = main_helper.import_archive(chats_path)
@@ -479,7 +483,8 @@ async def process_mass_messages(
         if "hashed_ip" not in mass_message:
             mass_message["hashed_ip"] = ""
         mass_message["hashed_ip"] = mass_message.get("hashed_ip", hash)
-        mass_message["date_hashed"] = mass_message.get("date_hashed", date_string)
+        mass_message["date_hashed"] = mass_message.get(
+            "date_hashed", date_string)
         if mass_message["isCanceled"]:
             continue
         queue_id = mass_message["id"]
@@ -511,7 +516,8 @@ async def process_mass_messages(
                 messages = []
                 print("Getting Messages")
                 keep = ["id", "username"]
-                list_chats2 = [x for x in chats if x["identifier"] == identifier]
+                list_chats2 = [
+                    x for x in chats if x["identifier"] == identifier]
                 if list_chats2:
                     chat2 = list_chats2[0]
                     messages = chat2["messages"]["list"]
@@ -519,8 +525,10 @@ async def process_mass_messages(
                         identifier=identifier, resume=messages
                     )
                     for message in messages:
-                        message["withUser"] = {k: item["withUser"][k] for k in keep}
-                        message["fromUser"] = {k: message["fromUser"][k] for k in keep}
+                        message["withUser"] = {
+                            k: item["withUser"][k] for k in keep}
+                        message["fromUser"] = {
+                            k: message["fromUser"][k] for k in keep}
                     mass_found = compare_message(queue_id, messages)
                     if mass_found:
                         mass_message["found"] = mass_found
@@ -529,12 +537,15 @@ async def process_mass_messages(
                 else:
                     item2 = {}
                     item2["identifier"] = identifier
-                    item2["messages"] = subscription.get_messages(identifier=identifier)
+                    item2["messages"] = subscription.get_messages(
+                        identifier=identifier)
                     chats.append(item2)
                     messages = item2["messages"]["list"]
                     for message in messages:
-                        message["withUser"] = {k: item["withUser"][k] for k in keep}
-                        message["fromUser"] = {k: message["fromUser"][k] for k in keep}
+                        message["withUser"] = {
+                            k: item["withUser"][k] for k in keep}
+                        message["fromUser"] = {
+                            k: message["fromUser"][k] for k in keep}
                     mass_found = compare_message(queue_id, messages)
                     if mass_found:
                         mass_message["found"] = mass_found
@@ -617,10 +628,12 @@ def process_legacy_metadata(
             old_metadata_set = []
             old_metadata_set.append(old_metadata_set2)
             delete_status = True
-    old_metadata_object = create_metadata(authed, old_metadata_set, api_type=api_type)
+    old_metadata_object = create_metadata(
+        authed, old_metadata_set, api_type=api_type)
     if old_metadata_set:
         print("Merging new metadata with old metadata.")
-    old_metadata_object = compare_metadata(old_metadata_object, legacy_metadata_object)
+    old_metadata_object = compare_metadata(
+        old_metadata_object, legacy_metadata_object)
     old_metadata_set = []
     for media_type, value in old_metadata_object.content:
         for status, value2 in value:
@@ -661,7 +674,8 @@ async def process_metadata(
         legacy_metadata_path, api_type, subscription, delete_metadatas
     )
     new_metadata_object = new_metadata_object + final_result
-    result = main_helper.export_sqlite(archive_path, api_type, new_metadata_object)
+    result = main_helper.export_sqlite(
+        archive_path, api_type, new_metadata_object)
     if not result:
         return
     Session, api_type, folder = result
@@ -780,6 +794,14 @@ async def prepare_scraper(authed: create_auth, site_name, item):
     if api_type == "Stories":
         master_set = await subscription.get_stories()
         master_set += await subscription.get_archived_stories()
+
+        for story in master_set:
+            if not story.isLiked and story.canLike:
+                tmp = await subscription.like(
+                    "stories", story.id)
+                if not tmp["success"]:
+                    print(tmp)
+
         highlights = await subscription.get_highlights()
         valid_highlights = []
         for highlight in highlights:
@@ -789,8 +811,16 @@ async def prepare_scraper(authed: create_auth, site_name, item):
         print
     if api_type == "Posts":
         master_set = await subscription.get_posts()
+        for post in master_set:
+            # and authed.extras['settings']['settings']['like_content']:
+            if not post.isFavorite or not getattr(post, 'isFavorite', getattr(post, 'isLiked', True)):
+                tmp = await post.favorite()
+                if hasattr(tmp, 'message') and tmp.message == 'Daily limit exceeded. Please try again later.':
+                    authed.extras['settings']['settings']['like_content'] = False
+
         print(f"Type: Archived Posts")
         master_set += await subscription.get_archived_posts()
+
     # if api_type == "Archived":
     #     master_set = await subscription.get_archived(authed)
     if api_type == "Messages":
@@ -803,6 +833,22 @@ async def prepare_scraper(authed: create_auth, site_name, item):
             )
             unrefined_set += unrefined_set2
         master_set = unrefined_set
+        for msg in master_set:
+            if not msg.isLiked and authed.extras['settings']['settings']['like_content']:
+                tmp = await subscription.like(
+                    "messages", msg.id)
+                if hasattr(tmp, "message"):
+                    if tmp.message == "This message is already liked.":
+                        msg.isLiked = True
+                    elif tmp.message == "Message not found":
+                        print
+                    elif tmp.message == "Daily limit exceeded. Please try again later.":
+                        authed.extras['settings']['settings']['like_content'] = False
+                    else:
+                        print(tmp)
+                else:
+                    msg.isLiked = tmp["isLiked"]
+
     master_set2 = master_set
     parent_type = ""
     unrefined_set = []
@@ -824,7 +870,8 @@ async def prepare_scraper(authed: create_auth, site_name, item):
     unrefined_set = [x for x in unrefined_set]
     new_metadata = main_helper.format_media_set(unrefined_set)
     metadata_path = os.path.join(formatted_metadata_directory, "user_data.db")
-    legacy_metadata_path = os.path.join(formatted_metadata_directory, api_type + ".db")
+    legacy_metadata_path = os.path.join(
+        formatted_metadata_directory, api_type + ".db")
     if new_metadata:
         new_metadata = new_metadata["content"]
         print("Processing metadata.")
@@ -858,7 +905,8 @@ def legacy_metadata_fixer(
     delete_legacy_metadatas = []
     legacy_metadatas = formatted_directories["legacy_metadatas"]
     new_metadata_directory = formatted_directories["metadata_directory"]
-    old_metadata_directory = os.path.dirname(legacy_metadatas["legacy_metadata"])
+    old_metadata_directory = os.path.dirname(
+        legacy_metadatas["legacy_metadata"])
     metadata_name = os.path.basename(f"{old_metadata_directory}.json")
     q = []
     for key, legacy_directory in legacy_metadatas.items():
@@ -871,25 +919,30 @@ def legacy_metadata_fixer(
             metadata_names = [f"{k}.json" for k, v in metadata_names]
             api_names += metadata_names
             print
-            type_one_files = main_helper.remove_mandatory_files(folders, keep=api_names)
+            type_one_files = main_helper.remove_mandatory_files(
+                folders, keep=api_names)
             new_format = []
             for type_one_file in type_one_files:
                 api_type = type_one_file.removesuffix(".json")
-                legacy_metadata_path = os.path.join(legacy_directory, type_one_file)
-                legacy_metadata = main_helper.import_archive(legacy_metadata_path)
+                legacy_metadata_path = os.path.join(
+                    legacy_directory, type_one_file)
+                legacy_metadata = main_helper.import_archive(
+                    legacy_metadata_path)
                 if legacy_metadata:
                     delete_legacy_metadatas.append(legacy_metadata_path)
                 legacy_metadata = create_metadata(
                     authed, legacy_metadata, api_type=api_type
                 ).convert()
                 new_format.append(legacy_metadata)
-            new_format = dict(merge({}, *new_format, strategy=Strategy.ADDITIVE))
+            new_format = dict(
+                merge({}, *new_format, strategy=Strategy.ADDITIVE))
             old_metadata_object = create_metadata(authed, new_format)
             if legacy_directory != new_metadata_directory:
                 import_path = os.path.join(legacy_directory, metadata_name)
                 new_metadata_set = main_helper.import_archive(import_path)
                 if new_metadata_set:
-                    new_metadata_object2 = create_metadata(authed, new_metadata_set)
+                    new_metadata_object2 = create_metadata(
+                        authed, new_metadata_set)
                     old_metadata_object = compare_metadata(
                         new_metadata_object2, old_metadata_object
                     )
@@ -949,7 +1002,8 @@ def compare_metadata(
                         # if old_item.post_id == 1646808:
                         #     l = True
                         new_found = None
-                        new_items = [x for x in new_status if post.post_id == x.post_id]
+                        new_items = [
+                            x for x in new_status if post.post_id == x.post_id]
                         if new_items:
                             for new_item in (x for x in new_items if not new_found):
                                 for new_media in (
@@ -969,7 +1023,8 @@ def compare_metadata(
                                 setattr(old_media, key3, v)
                             setattr(new_found, "found", True)
                 else:
-                    new_items = [x for x in new_status if post.post_id == x.post_id]
+                    new_items = [
+                        x for x in new_status if post.post_id == x.post_id]
                     if new_items:
                         new_found = new_items[0]
                         for key3, v in new_found:
@@ -1069,7 +1124,8 @@ async def media_scraper(
             if not date:
                 date = master_date
             date_object = datetime.fromisoformat(date)
-            date_string = date_object.replace(tzinfo=None).strftime("%d-%m-%Y %H:%M:%S")
+            date_string = date_object.replace(
+                tzinfo=None).strftime("%d-%m-%Y %H:%M:%S")
             master_date = date_string
         new_post["post_id"] = post_id
         new_post["user_id"] = subscription.id
@@ -1135,13 +1191,14 @@ async def media_scraper(
                 continue
             matches = [s for s in ignored_keywords if s in final_text]
             if matches:
-                print("Matches: ", matches)
+                print("Matches: {}, '{}'".format(matches, final_text))
                 continue
             filename = link.rsplit("/", 1)[-1]
             filename, ext = os.path.splitext(filename)
             ext = ext.__str__().replace(".", "").split("?")[0]
             final_api_type = (
-                os.path.join("Archived", api_type) if new_post["archived"] else api_type
+                os.path.join(
+                    "Archived", api_type) if new_post["archived"] else api_type
             )
             option = {}
             option = option | new_post

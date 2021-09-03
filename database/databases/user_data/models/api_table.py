@@ -18,6 +18,7 @@ class api_table:
     paid = sqlalchemy.Column(sqlalchemy.Integer)
     archived = cast(bool, sqlalchemy.Column(sqlalchemy.Boolean, default=False))
     created_at = cast(datetime, sqlalchemy.Column(sqlalchemy.TIMESTAMP))
+    liked = cast(bool, sqlalchemy.Column(sqlalchemy.Integer, default=0))
 
     def legacy(self, table_name):
         class legacy_api_table(LegacyBase):
@@ -27,5 +28,6 @@ class api_table:
             price = sqlalchemy.Column(sqlalchemy.Integer)
             paid = sqlalchemy.Column(sqlalchemy.Integer)
             created_at = sqlalchemy.Column(sqlalchemy.DATETIME)
+            
 
         return legacy_api_table

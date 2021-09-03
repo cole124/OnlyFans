@@ -20,6 +20,7 @@ class template_media_table:
     linked = sqlalchemy.Column(sqlalchemy.String, default=None)
     downloaded = cast(bool, sqlalchemy.Column(sqlalchemy.Integer, default=0))
     created_at = cast(datetime, sqlalchemy.Column(sqlalchemy.TIMESTAMP))
+    liked = cast(bool, sqlalchemy.Column(sqlalchemy.Integer, default=0))
 
     def legacy(self, Base):
         class legacy_media_table(Base):

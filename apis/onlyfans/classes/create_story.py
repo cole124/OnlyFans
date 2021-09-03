@@ -22,7 +22,7 @@ class create_story:
         self.placedContents: list = option.get("placedContents")
         self.answered: int = option.get("answered")
 
-    async def link_picker(self,media, video_quality):
+    async def link_picker(self, media, video_quality):
         link = ""
         if "source" in media:
             quality_key = "source"
@@ -45,3 +45,9 @@ class create_story:
         if "src" in media:
             link = media["src"]
         return link
+
+    async def like(self):
+        link = f"https://onlyfans.com/api2/v2/stories/{self.id}/like"
+        results = await self.user.session_manager.json_request(link, method="POST")
+        self.isLiked = True
+        return results

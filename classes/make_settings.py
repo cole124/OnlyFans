@@ -6,6 +6,8 @@ import uuid as uuid
 
 from yarl import URL
 current_version = None
+
+
 def fix(config={}):
     global current_version
     if config:
@@ -24,7 +26,7 @@ class config(object):
                 self.version = 7.2
 
         class Settings(object):
-            def __init__(self, auto_site_choice="", profile_directories=[".profiles"], export_type="json", max_threads=-1, min_drive_space=0, helpers={}, webhooks={}, exit_on_completion=False, infinite_loop=True, loop_timeout="0", dynamic_rules_link="https://raw.githubusercontent.com/DATAHOARDERS/dynamic-rules/main/onlyfans.json", proxies=[], cert="",  random_string=""):
+            def __init__(self, auto_site_choice="", profile_directories=[".profiles"], export_type="json", like_content=True, max_threads=-1, min_drive_space=0, helpers={}, webhooks={}, exit_on_completion=False, infinite_loop=True, loop_timeout="0", dynamic_rules_link="https://raw.githubusercontent.com/DATAHOARDERS/dynamic-rules/main/onlyfans.json", proxies=[], cert="",  random_string=""):
                 class webhooks_settings:
                     def __init__(self, option={}) -> None:
                         class webhook_template:
@@ -72,6 +74,7 @@ class config(object):
                 self.profile_directories = profile_directories
                 self.max_threads = max_threads
                 self.min_drive_space = min_drive_space
+                self.like_content = like_content
                 self.helpers = helpers_settings(
                     settings.get("helpers", helpers))
                 self.webhooks = webhooks_settings(settings.get(
@@ -83,7 +86,7 @@ class config(object):
                 url_host = dynamic_rules_link.host
                 if "github.com" == url_host:
                     if "raw" != url_host:
-                        path = dynamic_rules_link.path.replace("blob/","")
+                        path = dynamic_rules_link.path.replace("blob/", "")
                         dynamic_rules_link = f"https://raw.githubusercontent.com/{path}"
                 self.dynamic_rules_link = str(dynamic_rules_link)
                 self.proxies = proxies
@@ -98,11 +101,14 @@ class config(object):
                 elif "auto_scrape_apis" == key:
                     new_options["auto_api_choice"] = value
                 if "file_directory_format" == key:
-                    new_options["file_directory_format"] = value.replace("{username}","{model_username}")
+                    new_options["file_directory_format"] = value.replace(
+                        "{username}", "{model_username}")
                 if "filename_format" == key:
-                    new_options["filename_format"] = value.replace("{username}","{model_username}")
+                    new_options["filename_format"] = value.replace(
+                        "{username}", "{model_username}")
                 if "metadata_directory_format" == key:
-                    new_options["metadata_directory_format"] = value.replace("{username}","{model_username}")
+                    new_options["metadata_directory_format"] = value.replace(
+                        "{username}", "{model_username}")
                 if "blacklist_name" == key:
                     new_options["blacklists"] = [value]
             return new_options

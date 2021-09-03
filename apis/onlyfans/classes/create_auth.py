@@ -41,7 +41,8 @@ class create_auth(create_user):
         self.paid_content = []
         temp_pool = pool if pool else api_helper.multiprocessing()
         self.pool = temp_pool
-        self.session_manager = api_helper.session_manager(self, max_threads=max_threads)
+        self.session_manager = api_helper.session_manager(
+            self, max_threads=max_threads)
         self.auth_details: auth_details = auth_details()
         self.profile_directory = option.get("profile_directory", "")
         self.guest = False
@@ -94,7 +95,8 @@ class create_auth(create_user):
                             max_count = 3
                             while count < max_count + 1:
                                 print(
-                                    "2FA Attempt " + str(count) + "/" + str(max_count)
+                                    "2FA Attempt " +
+                                    str(count) + "/" + str(max_count)
                                 )
                                 code = input("Enter 2FA Code\n")
                                 data = {"code": code, "rememberMe": True}
@@ -241,7 +243,8 @@ class create_auth(create_user):
         offset_array = []
         for b in a:
             b = b * limit
-            link = endpoint_links(global_limit=limit, global_offset=b).subscriptions
+            link = endpoint_links(global_limit=limit,
+                                  global_offset=b).subscriptions
             offset_array.append(link)
 
         # Following logic is unique to creators only
@@ -367,7 +370,8 @@ class create_auth(create_user):
             link = endpoint_links(
                 identifier=self.id, global_limit=limit, global_offset=offset
             ).list_chats
-        links2 = api_helper.calculate_the_unpredictable(link, limit, multiplier)
+        links2 = api_helper.calculate_the_unpredictable(
+            link, limit, multiplier)
         if not inside_loop:
             links += links2
         else:
@@ -440,9 +444,10 @@ class create_auth(create_user):
             result = handle_refresh(self, api_type)
             if result:
                 return result
-        link = endpoint_links(global_limit=limit, global_offset=offset).paid_api
+        link = endpoint_links(global_limit=limit,
+                              global_offset=offset).paid_api
         final_results = await self.session_manager.json_request(link)
-        if not isinstance(final_results,error_details):
+        if not isinstance(final_results, error_details):
             if len(final_results) >= limit and not check:
                 results2 = self.get_paid_content(
                     limit=limit, offset=limit + offset, inside_loop=True
@@ -455,10 +460,20 @@ class create_auth(create_user):
                     if final_result["responseType"] == "message":
                         user = create_user(final_result["fromUser"], self)
                         content = create_message(final_result, user)
+                        if not content.isLiked:
+                            tmp = await content.like()
+                            if not tmp["success"]:
+                                print(tmp)
                         print
                     elif final_result["responseType"] == "post":
                         user = create_user(final_result["author"], self)
                         content = create_post(final_result, user)
+                        if not content.isFavorite and content.canToggleFavorite and self.extras['settings']['settings']['like_content']:
+                            tmp = await content.favorite()
+                            # and tmp.message == 'Daily limit exceeded. Please try again later.':
+                            if hasattr(tmp, 'message'):
+                                self.extras['settings']['settings']['like_content'] = False
+                            print
                     if content:
                         temp.append(content)
                 final_results = temp
