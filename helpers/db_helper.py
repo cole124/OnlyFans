@@ -28,6 +28,22 @@ def create_database_session(
     return Session, engine
 
 
+def create_mysql_database_session() -> tuple[scoped_session, Engine]:
+    # kwargs = {}
+    # if connection_type == "mysql+mysqldb://":
+    #     kwargs["pool_size"] = pool_size
+    #     kwargs["pool_pre_ping"] = True
+    #     kwargs["max_overflow"] = -1
+    #     kwargs["isolation_level"] = "READ COMMITTED"
+
+    engine = sqlalchemy.create_engine(
+        "mysql+mysqlconnector://python:Jnmjvt20!@192.168.1.162:6603/vue_data"
+    )
+    session_factory = sessionmaker(bind=engine, autocommit=True)
+    Session = scoped_session(session_factory)
+    return Session, engine
+
+
 def run_revisions(alembic_directory: str, database_path: str = ""):
     while True:
         try:

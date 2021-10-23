@@ -111,6 +111,8 @@ class config(object):
                         "{username}", "{model_username}")
                 if "blacklist_name" == key:
                     new_options["blacklists"] = [value]
+                if "whitelist_name" == key:
+                    new_options["whitelists"] = [value]
             return new_options
 
         class Supported(object):
@@ -182,6 +184,8 @@ class config(object):
                             'ignore_type', "")
                         self.blacklists = option.get(
                             'blacklists', "")
+                        self.whitelists = option.get(
+                            'whitelists', "")
                         self.webhook = option.get(
                             'webhook', True)
 
@@ -248,6 +252,8 @@ class config(object):
                             'ignore_type', "")
                         self.blacklist_name = option.get(
                             'blacklist_name', "")
+                        self.whitelist_name = option.get(
+                            'whitelist_name', "")
                         self.webhook = option.get(
                             'webhook', True)
         self.info = Info()

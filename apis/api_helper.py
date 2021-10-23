@@ -56,7 +56,8 @@ async def remove_errors(results: list):
     if not isinstance(results, list):
         wrapped = True
         results = [results]
-    results = [x for x in results if not isinstance(x, error_details)]
+    results = [x for x in results if not isinstance(
+        x, error_details) and not getattr(x, "isReportedByMe", False)]
     if wrapped and results:
         results = results[0]
     return results
@@ -269,10 +270,12 @@ class session_manager:
     ):
         attempt_count = 1
         new_task = {}
+        # new_task["thumb_response"] = None
         while attempt_count <= 3:
             attempt_count += 1
             if not download_item.link:
                 continue
+
             response: ClientResponse
             response = await asyncio.ensure_future(
                 self.json_request(
@@ -282,6 +285,19 @@ class session_manager:
                     stream=True,
                 )
             )
+            # if(download_item.thumbnail is not None):
+            #     response2: ClientResponse
+            #     response2 = await asyncio.ensure_future(
+            #         self.json_request(
+            #             download_item.thumbnail,
+            #             session,
+            #             json_format=False,
+            #             stream=True,
+            #         )
+            #     )
+            #     if response2 and response2.status != 200:
+            #         new_task["thumb_response"] = response2
+
             if response and response.status != 200:
                 if response.content_length:
                     progress_bar.update_total_size(-response.content_length)

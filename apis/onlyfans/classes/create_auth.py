@@ -58,7 +58,7 @@ class create_auth(create_user):
             if found_attr:
                 setattr(self, key, value)
 
-    async def login(self, max_attempts: int = 10, guest: bool = False):
+    async def login(self, max_attempts: int = 1, guest: bool = False):
         auth_version = "(V1)"
         auth_items = self.auth_details
         if not auth_items:
@@ -460,7 +460,7 @@ class create_auth(create_user):
                     if final_result["responseType"] == "message":
                         user = create_user(final_result["fromUser"], self)
                         content = create_message(final_result, user)
-                        if not content.isLiked:
+                        if not content.isLiked and content.mediaCount > 0 and self.extras['settings']['settings']['like_content']:
                             tmp = await content.like()
                             if not tmp["success"]:
                                 print(tmp)
@@ -468,12 +468,12 @@ class create_auth(create_user):
                     elif final_result["responseType"] == "post":
                         user = create_user(final_result["author"], self)
                         content = create_post(final_result, user)
-                        if not content.isFavorite and content.canToggleFavorite and self.extras['settings']['settings']['like_content']:
+                        if not content.isFavorite and content.canToggleFavorite and content.mediaCount > 0 and self.extras['settings']['settings']['like_content']:
                             tmp = await content.favorite()
                             # and tmp.message == 'Daily limit exceeded. Please try again later.':
-                            if hasattr(tmp, 'message'):
-                                self.extras['settings']['settings']['like_content'] = False
-                            print
+                            # if hasattr(tmp, 'message'):
+                            #     self.extras['settings']['settings']['like_content'] = False
+                        print
                     if content:
                         temp.append(content)
                 final_results = temp

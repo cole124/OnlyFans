@@ -4,6 +4,7 @@ import html
 import json
 import os
 import shutil
+import csv
 from datetime import datetime, timedelta
 from itertools import product
 from types import SimpleNamespace
@@ -28,6 +29,7 @@ from mergedeep import Strategy, merge
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm.scoping import scoped_session
 from tqdm.asyncio import tqdm
+import mysql.connector
 
 site_name = "OnlyFans"
 json_config = None
@@ -46,12 +48,13 @@ date_format = None
 ignored_keywords = []
 ignore_type = None
 blacklists = []
+whitelists = []
 webhook = None
 text_length = None
 
 
 def assign_vars(json_auth: auth_details, config, site_settings, site_name):
-    global json_config, json_global_settings, json_settings, auto_media_choice, profile_directory, download_directory, metadata_directory, metadata_directory_format, delete_legacy_metadata, overwrite_files, date_format, file_directory_format, filename_format, ignored_keywords, ignore_type, blacklists, webhook, text_length
+    global json_config, json_global_settings, json_settings, auto_media_choice, profile_directory, download_directory, metadata_directory, metadata_directory_format, delete_legacy_metadata, overwrite_files, date_format, file_directory_format, filename_format, ignored_keywords, ignore_type, blacklists, whitelists, webhook, text_length
 
     json_config = config
     json_global_settings = json_config["settings"]
@@ -75,8 +78,15 @@ def assign_vars(json_auth: auth_details, config, site_settings, site_name):
     ignored_keywords = json_settings["ignored_keywords"]
     ignore_type = json_settings["ignore_type"]
     blacklists = json_settings["blacklists"]
+    whitelists = json_settings["whitelists"]
     webhook = json_settings["webhook"]
     text_length = json_settings["text_length"]
+
+
+def write_csv_data(path, data):
+    with open(path, 'a', encoding='utf-8-sig', newline='') as csvfile:
+        csvwriter = csv.writer(csvfile)
+        csvwriter.writerow(data)
 
 
 async def account_setup(
@@ -796,7 +806,7 @@ async def prepare_scraper(authed: create_auth, site_name, item):
         master_set += await subscription.get_archived_stories()
 
         for story in master_set:
-            if not story.isLiked and story.canLike:
+            if not story.isLiked and story.canLike and authed.extras['settings']['settings']['like_content']:
                 tmp = await subscription.like(
                     "stories", story.id)
                 if not tmp["success"]:
@@ -813,10 +823,11 @@ async def prepare_scraper(authed: create_auth, site_name, item):
         master_set = await subscription.get_posts()
         for post in master_set:
             # and authed.extras['settings']['settings']['like_content']:
-            if not post.isFavorite or not getattr(post, 'isFavorite', getattr(post, 'isLiked', True)):
+            # and post.mediaCount > 0
+            if (not post.isFavorite or not getattr(post, 'isFavorite', getattr(post, 'isLiked', True))) and authed.extras['settings']['settings']['like_content']:
                 tmp = await post.favorite()
-                if hasattr(tmp, 'message') and tmp.message == 'Daily limit exceeded. Please try again later.':
-                    authed.extras['settings']['settings']['like_content'] = False
+                # if hasattr(tmp, 'message') and tmp.message == 'Daily limit exceeded. Please try again later.':
+                #     authed.extras['settings']['settings']['like_content'] = False
 
         print(f"Type: Archived Posts")
         master_set += await subscription.get_archived_posts()
@@ -834,6 +845,7 @@ async def prepare_scraper(authed: create_auth, site_name, item):
             unrefined_set += unrefined_set2
         master_set = unrefined_set
         for msg in master_set:
+            # and msg.mediaCount > 0
             if not msg.isLiked and authed.extras['settings']['settings']['like_content']:
                 tmp = await subscription.like(
                     "messages", msg.id)
@@ -842,8 +854,8 @@ async def prepare_scraper(authed: create_auth, site_name, item):
                         msg.isLiked = True
                     elif tmp.message == "Message not found":
                         print
-                    elif tmp.message == "Daily limit exceeded. Please try again later.":
-                        authed.extras['settings']['settings']['like_content'] = False
+                    # elif tmp.message == "Daily limit exceeded. Please try again later.":
+                    #     authed.extras['settings']['settings']['like_content'] = False
                     else:
                         print(tmp)
                 else:
@@ -1103,6 +1115,8 @@ async def media_scraper(
             date = post_result.postedAt
             price = post_result.price
             new_post["archived"] = post_result.isArchived
+            new_post["liked"] = post_result.isFavorite
+            new_post["bookmarked"] = post_result.isAddedToBookmarks
         if isinstance(post_result, create_message):
             if post_result.isReportedByMe:
                 continue
@@ -1110,6 +1124,7 @@ async def media_scraper(
             previews = post_result.previews
             date = post_result.createdAt
             price = post_result.price
+            new_post["liked"] = post_result.isLiked
             if api_type == "Mass Messages":
                 media_user = post_result.fromUser
                 media_username = media_user.username
@@ -1131,6 +1146,7 @@ async def media_scraper(
         new_post["user_id"] = subscription.id
         if isinstance(post_result, create_message):
             new_post["user_id"] = post_result.fromUser.id
+            new_post["bookmarked"] = False
 
         new_post["text"] = final_text
         new_post["postedAt"] = date_string
@@ -1171,6 +1187,10 @@ async def media_scraper(
             new_media = dict()
             new_media["media_id"] = media_id
             new_media["links"] = []
+            # if(hasattr(new_post, "isAddedToBookmarks")):
+            #     new_media["bookmarked"] = new_post["isAddedToBookmarks"]
+            # else:
+            #     new_media["bookmarked"] = False
             new_media["media_type"] = media_type
             new_media["preview"] = False
             new_media["created_at"] = new_post["postedAt"]
@@ -1189,10 +1209,17 @@ async def media_scraper(
 
             if media["type"] not in alt_media_type:
                 continue
-            matches = [s for s in ignored_keywords if s in final_text]
+            matches = [s for s in ignored_keywords if s in (
+                final_text or "and")]
             if matches:
-                print("Matches: {}, '{}'".format(matches, final_text))
-                continue
+                if(new_post.get("bookmarked")):
+                    print('Post is Bookmarked')
+                else:
+                    #print("Matches: {}, '{}'".format(matches, final_text))
+                    # if(new_post['api_type'] == 'Posts'):
+                    #     write_csv_data('C:\\Temp\\excluded.csv', [
+                    #         model_username, new_post['api_type'], new_post['post_id'], new_post['user_id'], final_text, "https://onlyfans.com/{}/{}".format(new_post['post_id'], model_username)])
+                    continue
             filename = link.rsplit("/", 1)[-1]
             filename, ext = os.path.splitext(filename)
             ext = ext.__str__().replace(".", "").split("?")[0]
@@ -1216,6 +1243,13 @@ async def media_scraper(
             option["directory"] = download_path
             option["preview"] = new_media["preview"]
             option["archived"] = new_post["archived"]
+
+            if(media["type"] == "video"):
+                new_media["thumbnail"] = media['thumb']
+                new_media["duration"] = media.get(
+                    "duration", media["source"].get("duration"))
+                if(media.get("duration", media["source"].get("duration", 100)) < 30):
+                    continue
 
             prepared_format = prepare_reformat(option)
             file_directory = await main_helper.reformat(
@@ -1321,8 +1355,58 @@ async def manage_subscriptions(
     authed: create_auth, auth_count=0, identifiers: list = [], refresh: bool = True
 ):
     results = await authed.get_subscriptions(identifiers=identifiers, refresh=refresh)
+    if os.path.exists(os.path.join(metadata_directory, 'Subscriptions.csv')):
+        os.remove(os.path.join(metadata_directory, "Subscriptions.csv"))
+        write_csv_data(os.path.join(metadata_directory, 'Subscriptions.csv'), [
+                       'Id', 'username', 'name', 'Price', 'renewedAt'])
+    with mysql.connector.connect(host="192.168.1.162", user="python", password="Jnmjvt20!", database="vue_data", port=6603) as conn:
+        cur = conn.cursor()
+        sql = "INSERT INTO Users (userid,username,name,subscription_price,renewal_date) VALUES (%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE name = %s, subscription_price = %s, renewal_date = %s;"
+        for res in results:
+            cur.execute(sql, (res.id, res.username, res.name, res.subscribePrice,
+                        res.subscribedByData['renewedAt'], res.name, res.subscribePrice, res.subscribedByData['renewedAt']))
+            write_csv_data(os.path.join(metadata_directory, 'Subscriptions.csv'), [
+                res.id, res.username, res.name, res.subscribePrice, res.subscribedByData['renewedAt']])
+        conn.commit()
+        # cur.close()
+
+        if os.path.exists(os.path.join(metadata_directory, 'Bookmarks.csv')):
+            os.remove(os.path.join(metadata_directory, "Bookmarks.csv"))
+            write_csv_data(os.path.join(metadata_directory, "Bookmarks.csv"), [
+                "id", "username", "name", "Normal Price", "Sale Price"])
+
+        sql = "INSERT INTO Users (userid,username,name,subscription_price,promo_price) VALUES (%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE name = %s, subscription_price = %s, promo_price = %s;"
+        lists = await authed.get_lists()
+        for lst in [item for item in lists if item.get('name') == 'Bookmarks']:
+            for user in await authed.get_lists_users(lst.get('id')):
+                u = await authed.get_user(user.get('id'))
+                about = getattr(u, 'about', '')
+                current_price = user.get('subscribePrice')
+                if user.get('promoOffers') != None:
+                    for p in user.get('promoOffers'):
+                        if p.get('price') < current_price:
+                            current_price = p.get('price')
+                if user.get('promotions') != None:
+                    for p in user.get('promotions'):
+                        if p.get('price') < current_price:
+                            current_price = p.get('price')
+                # if(current_price < user.get('subscribePrice') or user.get('subscribePrice') == 0):
+                cur.execute(sql, (user.get('id'), user.get('username'), user.get('name'), user.get(
+                    'subscribePrice'), current_price, user.get('name'), user.get('subscribePrice'), current_price))
+                write_csv_data(os.path.join(metadata_directory, "Bookmarks.csv"), [
+                    user.get('id'), user.get('username'), user.get('name'), user.get('subscribePrice'), current_price])
+        conn.commit()
+        cur.close()
+    subscriptions_temp = []
+    for lst in [item for item in lists if item.get('name') in whitelists]:
+        for user in await authed.get_lists_users(lst.get('id')):
+            subscriptions_temp.append(user.get('username'))
+
+    if(len(subscriptions_temp) > 0):
+        results = await authed.get_subscriptions(identifiers=subscriptions_temp, refresh=True)
+
     if blacklists:
-        remote_blacklists = await authed.get_lists()
+        remote_blacklists = lists
         if remote_blacklists:
             for remote_blacklist in remote_blacklists:
                 for blacklist in blacklists:

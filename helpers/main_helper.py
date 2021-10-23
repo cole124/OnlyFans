@@ -479,6 +479,7 @@ def export_sqlite2(archive_path, datas, parent_type, legacy_fixer=False):
         post_db.price = post["price"]
         post_db.paid = post["paid"]
         post_db.archived = post["archived"]
+        post_db.liked = post["isFavorite"]
         if date_object:
             post_db.created_at = date_object
         database_session.add(post_db)
@@ -591,59 +592,71 @@ def export_sqlite(database_path: str, api_type, datas):
             else:
                 date_object = postedAt
         result = database_session.query(api_table)
-        post_db = result.filter_by(post_id=post_id).first()
-        if not post_db:
-            post_db = api_table()
-        if api_type == "Messages":
-            post_db.user_id = post["user_id"]
-        post_db.post_id = post_id
-        post_db.text = post["text"]
-        if post["price"] is None:
-            post["price"] = 0
-        post_db.price = post["price"]
-        post_db.paid = post["paid"]
-        post_db.archived = post["archived"]
-        if date_object:
-            post_db.created_at = date_object
-        database_session.add(post_db)
-        for media in post["medias"]:
-            if media["media_type"] == "Texts":
-                continue
-            created_at = media["created_at"]
-            if not isinstance(created_at, datetime):
-                date_object = datetime.strptime(
-                    created_at, "%d-%m-%Y %H:%M:%S")
-            else:
-                date_object = postedAt
-            media_id = media.get("media_id", None)
-            result = database_session.query(database.media_table)
-            media_db = result.filter_by(media_id=media_id).first()
-            if not media_db:
-                media_db = result.filter_by(
-                    filename=media["filename"], created_at=date_object
-                ).first()
-                if not media_db:
-                    media_db = database.media_table()
-            media_db.media_id = media_id
-            media_db.post_id = post_id
-            if "_sa_instance_state" in post:
-                media_db.size = media["size"]
-                media_db.downloaded = media["downloaded"]
-            media_db.link = media["links"][0]
-            media_db.preview = media.get("preview", False)
-            media_db.directory = media["directory"]
-            media_db.filename = media["filename"]
-            media_db.api_type = api_type
-            media_db.media_type = media["media_type"]
-            media_db.linked = media.get("linked", None)
+        try:
+            post_db = result.filter_by(post_id=post_id).first()
+            if not post_db:
+                post_db = api_table()
+            if api_type == "Messages":
+                post_db.user_id = post["user_id"]
+            post_db.post_id = post_id
+            post_db.text = post["text"]
+            if post["price"] is None:
+                post["price"] = 0
+            post_db.price = post["price"]
+            post_db.paid = post["paid"]
+            post_db.archived = post["archived"]
             if date_object:
-                media_db.created_at = date_object
-            database_session.add(media_db)
+                post_db.created_at = date_object
+            database_session.add(post_db)
+            for media in post["medias"]:
+                if media["media_type"] == "Texts":
+                    continue
+                created_at = media["created_at"]
+                if not isinstance(created_at, datetime):
+                    date_object = datetime.strptime(
+                        created_at, "%d-%m-%Y %H:%M:%S")
+                else:
+                    date_object = postedAt
+                media_id = media.get("media_id", None)
+                result = database_session.query(database.media_table)
+                media_db = result.filter_by(media_id=media_id).first()
+                if not media_db:
+                    media_db = result.filter_by(
+                        filename=media["filename"], created_at=date_object
+                    ).first()
+                    if not media_db:
+                        media_db = database.media_table()
+                media_db.media_id = media_id
+                media_db.post_id = post_id
+                if "_sa_instance_state" in post:
+                    media_db.size = media["size"]
+                    media_db.downloaded = media["downloaded"]
+                media_db.link = media["links"][0]
+                media_db.preview = media.get("preview", False)
+                media_db.directory = media["directory"]
+                media_db.filename = media["filename"]
+                media_db.api_type = api_type
+                media_db.media_type = media["media_type"]
+                media_db.linked = media.get("linked", None)
+                media_db.duration = media.get("duration", 0)
+                media_db.thumbnail = media.get("thumbnail", None)
+                if date_object:
+                    media_db.created_at = date_object
+                database_session.add(media_db)
+                print
             print
-        print
+        except Exception as inst:
+            print("Unexpected error with database", inst, database_path)
     print
-    database_session.commit()
-    database_session.close()
+    try:
+        database_session.commit()
+    except Exception as inst:
+        print("Unexpected error committing", inst, database_path)
+
+    try:
+        database_session.close()
+    except Exception as inst:
+        print("Unexpected error closing database", inst, database_path)
     return Session, api_type, database
 
 
@@ -832,9 +845,37 @@ class download_session(tqdm):
         self.update(b)
 
 
+def process_settings(json_settings, args):
+    if(len(args.like_content) > 1):
+        json_settings['like_content'] = args.like_content.lower() == 'true'
+
+    return json_settings
+
+
+def process_supported(json_settings, args):
+    if(isinstance(args.models, str) and len(args.models) > 2):
+        if(args.models.lower() == 'true'):
+            json_settings['onlyfans']['settings']['auto_model_choice'] = True
+        else:
+            json_settings['onlyfans']['settings']['auto_model_choice'] = args.models
+        #args.like_content.lower() == 'true'
+    elif(isinstance(args.models, bool) and args.models):
+        json_settings['onlyfans']['settings']['auto_model_choice'] = True
+
+    if(len(args.whitelist) > 0):
+        json_settings['onlyfans']['settings']['whitelists'] = args.whitelist
+
+    if(len(args.blacklist) > 0):
+        json_settings['onlyfans']['settings']['blacklists'] += "," + \
+            args.blacklist
+
+    return json_settings
+
+
 def get_config(config_path):
     if os.path.exists(config_path):
         json_config = ujson.load(open(config_path))
+
     else:
         json_config = {}
     json_config2 = copy.deepcopy(json_config)
@@ -844,6 +885,7 @@ def get_config(config_path):
         json.dumps(make_settings.config(**json_config),
                    default=lambda o: o.__dict__)
     )
+
     updated = False
     if json_config != json_config2:
         updated = True

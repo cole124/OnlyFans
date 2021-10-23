@@ -21,6 +21,8 @@ class template_media_table:
     downloaded = cast(bool, sqlalchemy.Column(sqlalchemy.Integer, default=0))
     created_at = cast(datetime, sqlalchemy.Column(sqlalchemy.TIMESTAMP))
     liked = cast(bool, sqlalchemy.Column(sqlalchemy.Integer, default=0))
+    thumbnail = cast(str, sqlalchemy.Column(sqlalchemy.String))
+    duration = sqlalchemy.Column(sqlalchemy.Integer, default=0)
 
     def legacy(self, Base):
         class legacy_media_table(Base):
@@ -34,6 +36,8 @@ class template_media_table:
             media_type = sqlalchemy.Column(sqlalchemy.String)
             downloaded = sqlalchemy.Column(sqlalchemy.Integer, default=0)
             created_at = sqlalchemy.Column(sqlalchemy.DATETIME)
+            thumbnail = cast(str, sqlalchemy.Column(sqlalchemy.String))
+            duration = sqlalchemy.Column(sqlalchemy.Integer, default=0)
 
         return legacy_media_table
 
@@ -46,11 +50,16 @@ class template_media_table:
             link = cast(str, sqlalchemy.Column(sqlalchemy.String))
             directory = cast(str, sqlalchemy.Column(sqlalchemy.String))
             filename = cast(str, sqlalchemy.Column(sqlalchemy.String))
-            size = cast(int, sqlalchemy.Column(sqlalchemy.Integer, default=None))
+            size = cast(int, sqlalchemy.Column(
+                sqlalchemy.Integer, default=None))
             media_type = sqlalchemy.Column(sqlalchemy.String)
             preview = sqlalchemy.Column(sqlalchemy.Integer, default=0)
             linked = sqlalchemy.Column(sqlalchemy.String, default=None)
-            downloaded = cast(bool, sqlalchemy.Column(sqlalchemy.Integer, default=0))
-            created_at = cast(datetime, sqlalchemy.Column(sqlalchemy.TIMESTAMP))
+            downloaded = cast(bool, sqlalchemy.Column(
+                sqlalchemy.Integer, default=0))
+            created_at = cast(
+                datetime, sqlalchemy.Column(sqlalchemy.TIMESTAMP))
+            thumbnail = cast(str, sqlalchemy.Column(sqlalchemy.String))
+            duration = sqlalchemy.Column(sqlalchemy.Integer, default=0)
 
         return legacy_media_table
