@@ -1,4 +1,5 @@
 #import requests
+import os
 import sys
 #import hashlib
 #import os
@@ -144,3 +145,24 @@ def CombineFiles():
             mbar.set_postfix(file=username, refresh=False)
             CopyData(d)
             mbar.update(1)
+
+
+def MergeData():
+    with mysql.connector.connect(host=os.environ.get('sqladd', '192.168.1.128'), user=os.environ.get('SQL_USER', 'python'), password=os.environ.get('SQL_PASS', 'Jnmjvt20!'), database=os.environ.get('SQL_DATABASE', 'vue_data'), port=os.environ.get('sqlport', 3306)) as nConn:
+        nCur = nConn.cursor()
+
+        sql = "INSERT INTO Posts SELECT a.post_id,a.text FROM messages_temp a LEFT JOIN Posts b ON a.post_id=b.post_id WHERE b.post_id IS NULL AND length(a.text)>0 UNION SELECT a.post_id,a.text FROM posts_temp a LEFT JOIN Posts b ON a.post_id=b.post_id WHERE b.post_id IS NULL AND length(a.text)>0 UNION SELECT a.post_id,a.text FROM stories_temp a LEFT JOIN Posts b ON a.post_id=b.post_id WHERE b.post_id IS NULL AND length(a.text)>0;"
+        nCur.execute(sql)
+
+        sql = """INSERT INTO medias(`user_id`, `media_id`, `post_id`,`link`, `filename`, `size`, `api_type`, `media_type`, `preview`, `downloaded`, `created_at`, `duration`, `thumbnail`, width, height,`sThumb_width`,`sThumb_height`,`sThumb_duration`,`paid`,`price`)
+            SELECT a.`user_id`,a.`media_id`,a.`post_id`,a.`link`,a.`filename`,a.`size`,a.`api_type`,a.`media_type`,a.`preview`,a.`downloaded`,a.`created_at`,a.`duration`,a.`thumbnail`,a.width,a.height,
+            Ceil(case when a.width>=a.height then 160 WHEN a.width<a.height then (a.width/a.height)*90 end) as sThumb_width,Ceil(case when a.width>a.height then 160/(a.width/a.height)
+            WHEN a.width<a.height then 90 WHEN a.width=a.height then 160 end) as sThumb_height,10 as sThumb_duration,COALESCE(p.paid,m.paid,0),COALESCE(p.price,m.price,0)
+            FROM medias_temp a
+            LEFT JOIN posts_temp p ON a.post_id=p.post_id
+            LEFT JOIN messages_temp m ON a.post_id=m.post_id
+        WHERE NOT EXISTS (SELECT id FROM medias Where `medias`.media_id=a.media_id);"""
+
+        nCur.execute(sql)
+
+        nCur.close()

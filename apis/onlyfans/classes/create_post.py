@@ -4,19 +4,17 @@ from typing import Any
 
 
 class create_post:
-    def __init__(self, option, user) -> None:
+    def __init__(self, option: dict[str, Any], user) -> None:
         self.responseType: str = option.get("responseType")
         self.id: int = option.get("id")
         self.postedAt: str = option.get("postedAt")
         self.postedAtPrecise: str = option.get("postedAtPrecise")
         self.expiredAt: Any = option.get("expiredAt")
-        try:
-            self.author = create_user.create_user(option["author"])
-        except:
-            print("An exception occurred")
-
-        self.text: str = option.get("text")
-        self.rawText: str = option.get("rawText")
+        self.author = create_user.create_user(option.get("author", {}))
+        text: str = option.get("text", "")
+        self.text = str(text or "")
+        raw_text: str = option.get("rawText", "")
+        self.rawText = str(raw_text or "")
         self.lockedText: bool = option.get("lockedText")
         self.isFavorite: bool = option.get("isFavorite")
         self.isReportedByMe: bool = option.get("isReportedByMe")
@@ -54,9 +52,6 @@ class create_post:
             identifier2=self.id,
             identifier3=self.author.id,
         ).favorite
-        if self.isFavorite:
-            return None
-
         results = await self.user.session_manager.json_request(link, method="POST")
         self.isFavorite = True
         return results

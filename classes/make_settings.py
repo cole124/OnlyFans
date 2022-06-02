@@ -6,8 +6,6 @@ import uuid as uuid
 
 from yarl import URL
 current_version = None
-
-
 def fix(config={}):
     global current_version
     if config:
@@ -86,7 +84,7 @@ class config(object):
                 url_host = dynamic_rules_link.host
                 if "github.com" == url_host:
                     if "raw" != url_host:
-                        path = dynamic_rules_link.path.replace("blob/", "")
+                        path = dynamic_rules_link.path.replace("blob/","")
                         dynamic_rules_link = f"https://raw.githubusercontent.com/{path}"
                 self.dynamic_rules_link = str(dynamic_rules_link)
                 self.proxies = proxies
@@ -101,14 +99,11 @@ class config(object):
                 elif "auto_scrape_apis" == key:
                     new_options["auto_api_choice"] = value
                 if "file_directory_format" == key:
-                    new_options["file_directory_format"] = value.replace(
-                        "{username}", "{model_username}")
+                    new_options["file_directory_format"] = value.replace("{username}","{model_username}")
                 if "filename_format" == key:
-                    new_options["filename_format"] = value.replace(
-                        "{username}", "{model_username}")
+                    new_options["filename_format"] = value.replace("{username}","{model_username}")
                 if "metadata_directory_format" == key:
-                    new_options["metadata_directory_format"] = value.replace(
-                        "{username}", "{model_username}")
+                    new_options["metadata_directory_format"] = value.replace("{username}","{model_username}")
                 if "blacklist_name" == key:
                     new_options["blacklists"] = [value]
                 if "whitelist_name" == key:
@@ -116,8 +111,9 @@ class config(object):
             return new_options
 
         class Supported(object):
-            def __init__(self, onlyfans={}, patreon={}, starsavn={}):
+            def __init__(self, onlyfans={}, fansly={}, patreon={}, starsavn={}):
                 self.onlyfans = self.OnlyFans(onlyfans)
+                self.fansly = self.Fansly(fansly)
                 self.starsavn = self.StarsAvn(starsavn)
 
             class OnlyFans:
@@ -189,15 +185,9 @@ class config(object):
                         self.webhook = option.get(
                             'webhook', True)
 
-            class StarsAvn:
+            class Fansly:
                 def __init__(self, module):
                     self.settings = self.Settings(module.get('settings', {}))
-
-                class Auth:
-                    def __init__(self, option={}):
-                        self.username = option.get('username', "")
-                        self.sess = option.get('sess', "")
-                        self.user_agent = option.get('user_agent', "")
 
                 class Settings():
                     def __init__(self, option={}):
@@ -214,8 +204,15 @@ class config(object):
                             def __init__(self, option={}) -> None:
                                 self.auth = option.get(
                                     'auth', True)
-                        self.auto_profile_choice = option.get(
-                            'auto_profile_choice', "")
+
+                        class database:
+                            def __init__(self, option={}) -> None:
+                                self.posts = option.get(
+                                    'posts', True)
+                                self.comments = option.get(
+                                    'comments', True)
+                        self.auto_profile_choice: Union[List] = option.get(
+                            'auto_profile_choice', [])
                         self.auto_model_choice = option.get(
                             'auto_model_choice', False)
                         self.auto_media_choice = option.get(
@@ -250,10 +247,75 @@ class config(object):
                             'ignored_keywords', [])
                         self.ignore_type = option.get(
                             'ignore_type', "")
-                        self.blacklist_name = option.get(
-                            'blacklist_name', "")
-                        self.whitelist_name = option.get(
-                            'whitelist_name', "")
+                        self.blacklists = option.get(
+                            'blacklists', [])
+                        self.webhook = option.get(
+                            'webhook', True)
+
+            class StarsAvn:
+                def __init__(self, module):
+                    self.settings = self.Settings(module.get('settings', {}))
+
+                class Settings():
+                    def __init__(self, option={}):
+                        option = update_site_settings(option)
+
+                        class jobs:
+                            def __init__(self, option={}) -> None:
+                                self.scrape_names = option.get(
+                                    'scrape_names', True)
+                                self.scrape_paid_content = option.get(
+                                    'scrape_paid_content', True)
+
+                        class browser:
+                            def __init__(self, option={}) -> None:
+                                self.auth = option.get(
+                                    'auth', True)
+
+                        class database:
+                            def __init__(self, option={}) -> None:
+                                self.posts = option.get(
+                                    'posts', True)
+                                self.comments = option.get(
+                                    'comments', True)
+                        self.auto_profile_choice: Union[List] = option.get(
+                            'auto_profile_choice', [])
+                        self.auto_model_choice = option.get(
+                            'auto_model_choice', False)
+                        self.auto_media_choice = option.get(
+                            'auto_media_choice', "")
+                        self.auto_api_choice = option.get(
+                            'auto_api_choice', True)
+                        self.browser = browser(option.get(
+                            'browser', {}))
+                        self.jobs = jobs(option.get(
+                            'jobs', {}))
+                        self.download_directories = option.get(
+                            'download_directories', [".sites"])
+                        normpath = os.path.normpath
+                        self.file_directory_format = normpath(option.get(
+                            'file_directory_format', "{site_name}/{model_username}/{api_type}/{value}/{media_type}"))
+                        self.filename_format = normpath(option.get(
+                            'filename_format', "{filename}.{ext}"))
+                        self.metadata_directories = option.get(
+                            'metadata_directories', [".sites"])
+                        self.metadata_directory_format = normpath(option.get(
+                            'metadata_directory_format', "{site_name}/{model_username}/Metadata"))
+                        self.delete_legacy_metadata = option.get(
+                            'delete_legacy_metadata', False)
+                        self.text_length = option.get('text_length', 255)
+                        self.video_quality = option.get(
+                            'video_quality', "source")
+                        self.overwrite_files = option.get(
+                            'overwrite_files', False)
+                        self.date_format = option.get(
+                            'date_format', "%d-%m-%Y")
+                        self.ignored_keywords = option.get(
+                            'ignored_keywords', [])
+                        self.ignore_type = option.get(
+                            'ignore_type', "")
+                        self.blacklists = option.get(
+                            'blacklists', [])
                         self.webhook = option.get(
                             'webhook', True)
         self.info = Info()

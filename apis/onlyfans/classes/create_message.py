@@ -14,16 +14,15 @@ class create_message:
         self.price: Optional[float] = option.get("price")
         self.isMediaReady: Optional[bool] = option.get("isMediaReady")
         self.mediaCount: Optional[int] = option.get("mediaCount")
-        self.media: list = option.get("media", [])
-        self.previews: list = option.get("previews", [])
+        self.media: list = option.get("media",[])
+        self.previews: list = option.get("previews",[])
         self.isTip: Optional[bool] = option.get("isTip")
         self.isReportedByMe: Optional[bool] = option.get("isReportedByMe")
-        self.fromUser = create_user.create_user(option["fromUser"])
+        self.fromUser  = create_user.create_user(option["fromUser"])
         self.isFromQueue: Optional[bool] = option.get("isFromQueue")
         self.queueId: Optional[int] = option.get("queueId")
         self.canUnsendQueue: Optional[bool] = option.get("canUnsendQueue")
-        self.unsendSecondsQueue: Optional[int] = option.get(
-            "unsendSecondsQueue")
+        self.unsendSecondsQueue: Optional[int] = option.get("unsendSecondsQueue")
         self.id: Optional[int] = option.get("id")
         self.isOpened: Optional[bool] = option.get("isOpened")
         self.isNew: Optional[bool] = option.get("isNew")
@@ -55,7 +54,7 @@ class create_message:
         )
         return result
 
-    async def link_picker(self, media, video_quality):
+    async def link_picker(self,media, video_quality):
         link = ""
         if "source" in media:
             quality_key = "source"

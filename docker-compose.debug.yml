@@ -1,0 +1,13 @@
+version: '3.4'
+
+services:
+  onlyfans:
+    image: onlyfans
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    command: ["sh", "-c", "pip install debugpy -t /tmp && python /tmp/debugpy --wait-for-client --listen 0.0.0.0:5678 start_ofd.py "]
+    volumes:
+      - usb:/app/data
+    ports:
+      - 5678:5678

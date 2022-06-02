@@ -12,7 +12,8 @@ LegacyBase = declarative_base()
 class api_table:
     __tablename__ = ""
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
-    post_id = sqlalchemy.Column(sqlalchemy.Integer, unique=True, nullable=False)
+    post_id = sqlalchemy.Column(sqlalchemy.BIGINT, unique=True, nullable=False)
+    user_id = sqlalchemy.Column(sqlalchemy.BIGINT, unique=True, nullable=False)
     text = sqlalchemy.Column(sqlalchemy.String)
     price = cast(int, sqlalchemy.Column(sqlalchemy.Integer))
     paid = sqlalchemy.Column(sqlalchemy.Integer)
@@ -28,6 +29,5 @@ class api_table:
             price = sqlalchemy.Column(sqlalchemy.Integer)
             paid = sqlalchemy.Column(sqlalchemy.Integer)
             created_at = sqlalchemy.Column(sqlalchemy.DATETIME)
-            
 
         return legacy_api_table
