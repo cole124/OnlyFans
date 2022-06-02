@@ -1,3 +1,4 @@
+import asyncio
 import copy
 import hashlib
 import html
@@ -10,7 +11,7 @@ from itertools import product
 from types import SimpleNamespace
 from typing import Any, Optional, Union
 from urllib.parse import urlparse
-
+import time
 import extras.OFLogin.start_ofl as oflogin
 import extras.OFRenamer.start_ofr as ofrenamer
 import helpers.db_helper as db_helper
@@ -665,7 +666,7 @@ def process_legacy_metadata(
             final_set.append(item)
             print
         print
-    print("Finished processing metadata.")
+        print("Finished processing metadata.")
     return final_set, delete_metadatas
 
 
@@ -685,7 +686,7 @@ async def process_metadata(
     )
     new_metadata_object = new_metadata_object + final_result
     result = main_helper.export_sqlite(
-        archive_path, api_type, new_metadata_object)
+        archive_path, api_type, new_metadata_object, subscription.id)
     if not result:
         return
     Session, api_type, folder = result
@@ -793,7 +794,7 @@ async def prepare_scraper(authed: create_auth, site_name, item):
         media_type,
         api_type,
     )
-    legacy_model_directory = formatted_directories["legacy_model_directory"]
+    # legacy_model_directory = formatted_directories["legacy_model_directory"]
     formatted_download_directory = formatted_directories["download_directory"]
     formatted_metadata_directory = formatted_directories["metadata_directory"]
     if api_type == "Profile":
@@ -887,14 +888,14 @@ async def prepare_scraper(authed: create_auth, site_name, item):
     if new_metadata:
         new_metadata = new_metadata["content"]
         print("Processing metadata.")
-        old_metadata, delete_metadatas = process_legacy_metadata(
-            authed,
-            new_metadata,
-            formatted_directories,
-            api_type,
-            metadata_path,
-        )
-        new_metadata = new_metadata + old_metadata
+        # old_metadata, delete_metadatas = process_legacy_metadata(
+        #     authed,
+        #     new_metadata,
+        #     formatted_directories,
+        #     api_type,
+        #     metadata_path,
+        # )
+        # new_metadata = new_metadata + old_metadata
         subscription.set_scraped(api_type, new_metadata)
         await process_metadata(
             authed,
@@ -904,7 +905,8 @@ async def prepare_scraper(authed: create_auth, site_name, item):
             site_name,
             api_type,
             subscription,
-            delete_metadatas,
+            []
+            # delete_metadatas,
         )
     else:
         print("No " + api_type + " Found.")
@@ -1246,10 +1248,14 @@ async def media_scraper(
 
             if(media["type"] == "video"):
                 new_media["thumbnail"] = media['thumb']
+                new_media["width"] = media["source"].get(
+                    "width", media["info"]["source"].get("width"))
+                new_media["height"] = media["source"].get(
+                    "height", media["info"]["source"].get("height"))
                 new_media["duration"] = media.get(
                     "duration", media["source"].get("duration"))
-                if(media.get("duration", media["source"].get("duration", 100)) < 30):
-                    continue
+                # if(media.get("duration", media["source"].get("duration", 100)) < 30):
+                #     continue
 
             prepared_format = prepare_reformat(option)
             file_directory = await main_helper.reformat(
@@ -1310,7 +1316,7 @@ async def prepare_downloads(subscription: create_user):
         return
     directory = download_info["directory"]
     for api_type, metadata_path in download_info["metadata_locations"].items():
-        Session, engine = db_helper.create_database_session(metadata_path)
+        Session, engine = db_helper.create_mysql_database_session()
         database_session: scoped_session = Session()
         db_collection = db_helper.database_collection()
         database = db_collection.database_picker("user_data")
@@ -1324,6 +1330,7 @@ async def prepare_downloads(subscription: create_user):
                 download_list: Any = (
                     database_session.query(media_table)
                     .filter(media_table.api_type == api_type)
+                    .filter(media_table.user_id == subscription.id)
                     .all()
                 )
                 media_set_count = len(download_list)
@@ -1331,6 +1338,7 @@ async def prepare_downloads(subscription: create_user):
                 download_list: Any = (
                     database_session.query(media_table)
                     .filter(media_table.downloaded == False)
+                    .filter(media_table.user_id == subscription.id)
                     .filter(media_table.api_type == api_type)
                 )
                 media_set_count = db_helper.get_count(download_list)
@@ -1340,63 +1348,224 @@ async def prepare_downloads(subscription: create_user):
             if media_set_count:
                 print(string)
                 await main_helper.async_downloads(download_list, subscription)
-            while True:
-                try:
-                    database_session.commit()
-                    break
-                except OperationalError:
-                    database_session.rollback()
+            # while True:
+            #     try:
+            #         database_session.commit()
+            #         break
+            #     except OperationalError:
+            #         database_session.rollback()
             database_session.close()
         print
     print
 
+async def log_subscriptions(
+    authed: create_auth
+):
+    print("Logging Users")
+    results = await authed.get_subscriptions(identifiers=None,refresh= True)
+    queue = asyncio.Queue()
+    # if os.path.exists(os.path.join(metadata_directory, 'Subscriptions.csv')):
+    #     os.remove(os.path.join(metadata_directory, "Subscriptions.csv"))
+    #     write_csv_data(os.path.join(metadata_directory, 'Subscriptions.csv'), [
+    #                    'Id', 'username', 'name', 'Price', 'renewedAt'])
+    Session, engine = db_helper.create_mysql_database_session()
+    database_session: scoped_session = Session()
+    db_collection = db_helper.database_collection()
+    database = db_collection.database_picker("user_data")
+    if not database:
+        return
+    database_session = Session()
+    user_table = database.table_picker("Users")
+    if not user_table:
+        return
+
+    tasks = []
+    for res in results:
+        queue.put_nowait(res)
+        task = asyncio.create_task(LogUser(authed, database_session, user_table, queue))
+        tasks.append(task)
+        # await LogUser(authed, database_session, user_table, res)
+
+    #Test Setup Start
+    # queue.put_nowait(results[0])
+    # task = asyncio.create_task(LogUser(authed, database_session, user_table, queue))
+    # tasks.append(task)
+    #Test Setup End
+
+    lists = await authed.get_lists()
+    for lst in [f for f in lists if f.get('type')=='custom' or f.get('type')=='bookmarks' or f.get('type')=='following']:
+        # await LogList(authed, results, database_session, user_table, lst)
+        for user in await authed.get_lists_users(lst.get('id')):
+            if(user.get('id') in [r.id for r in results]):
+                continue
+
+            queue.put_nowait(user)
+            task = asyncio.create_task(LogUser(authed, database_session, user_table, queue))
+            tasks.append(task)
+
+
+    started_at = time.monotonic()
+    await queue.join()
+    total_slept_for = time.monotonic() - started_at
+
+    # Cancel our worker tasks.
+    for task in tasks:
+        task.cancel()
+    # Wait until all worker tasks are cancelled.
+    await asyncio.gather(*tasks, return_exceptions=True)
+
+    print('====')
+    print(f'workers ran in parallel for {total_slept_for:.2f} seconds')
+    
+    db_helper.FlushDatabase(database_session,0)
+        
+
+        
+
+    # lists = await authed.get_lists()
+    # for lst in [f for f in lists if f.get('type')=='custom' or f.get('type')=='bookmarks' or f.get('type')=='following']:
+    #     # await LogList(authed, results, database_session, user_table, lst)
+    #     for user in await authed.get_lists_users(lst.get('id')):
+    #     if(user.get('id') in [r.id for r in results]):
+    #         continue
+
+    #     queue.put_nowait(user)
+    #     task = asyncio.create_task(LogUser(authed, database_session, user_table, queue))
+    #     tasks.append(task)
+    #     u = await authed.get_user(user.get('id'))
+    #     subscribed=getattr(u,"subscribedByData",None) is not None
+    #     print(f" -Logging {user.get('username')}, Subscribed: {subscribed}")
+    #     about = getattr(u, 'about', '')
+    #     current_price = user.get('subscribePrice')
+    #     if user.get('promoOffers') != None:
+    #         for p in user.get('promoOffers'):
+    #             if p.get('price') < current_price:
+    #                 current_price = p.get('price')
+    #     if user.get('promotions') != None:
+    #         for p in user.get('promotions'):
+    #             if p.get('price') < current_price:
+    #                 current_price = p.get('price')
+            
+    #     db_result = database_session.query(user_table)
+    #     user_db=db_result.filter_by(userId=user.get('id')).first()
+    #     if not user_db:
+    #         user_db=user_table()
+
+    #     user_db.userId=user.get('id')
+    #     user_db.username=user.get('username')
+    #     user_db.name=user.get('name')
+    #     user_db.subscribed=subscribed
+    #     user_db.subscription_price=user.get('subscribePrice')
+    #     user_db.promo_price=current_price
+    #     user_db.renewal_date=user.get('renewedAt')
+    #     user_db.Lists=getattr(u,'custom_lists',getattr(u,'message',''))
+
+
+    #     database_session.add(user_db)
+
+    # db_helper.FlushDatabase(database_session,0)
+    database_session.close()
+
+async def LogList(authed, results, database_session, user_table, lst):
+    print(f" Logging {lst.get('name')}")
+    for user in await authed.get_lists_users(lst.get('id')):
+        if(user.get('id') in [r.id for r in results]):
+            continue
+        u = await authed.get_user(user.get('id'))
+        subscribed=getattr(u,"subscribedByData",None) is not None
+        print(f" -Logging {user.get('username')}, Subscribed: {subscribed}")
+        about = getattr(u, 'about', '')
+        current_price = user.get('subscribePrice')
+        if user.get('promoOffers') != None:
+            for p in user.get('promoOffers'):
+                if p.get('price') < current_price:
+                    current_price = p.get('price')
+        if user.get('promotions') != None:
+            for p in user.get('promotions'):
+                if p.get('price') < current_price:
+                    current_price = p.get('price')
+            
+        db_result = database_session.query(user_table)
+        user_db=db_result.filter_by(userId=user.get('id')).first()
+        if not user_db:
+            user_db=user_table()
+
+        user_db.userId=user.get('id')
+        user_db.username=user.get('username')
+        user_db.name=user.get('name')
+        user_db.subscribed=subscribed
+        user_db.subscription_price=user.get('subscribePrice')
+        user_db.promo_price=current_price
+        user_db.renewal_date=user.get('renewedAt')
+        user_db.Lists=getattr(u,'custom_lists',getattr(u,'message',''))
+
+
+        database_session.add(user_db)
+
+
+        
+#             # if(current_price < user.get('subscribePrice') or user.get('subscribePrice') == 0):
+#             cur.execute(sql, (user.get('id'), user.get('username'), user.get('name'), user.get(
+#                 'subscribePrice'), current_price, getattr(u,'custom_lists',getattr(u,'message','')),user.get('renewedAt'), user.get('name'), user.get('subscribePrice'), current_price, getattr(u,'custom_lists',getattr(u,'message','')),subscribed,user.get('renewedAt')))
+#             # write_csv_data(os.path.join(metadata_directory, "Bookmarks.csv"), [
+#             #     user.get('id'), user.get('username'), user.get('name'), user.get('subscribePrice'), current_price])
+    #     conn.commit()
+    #     cur.close()
+        #Old Block End
 
 async def manage_subscriptions(
     authed: create_auth, auth_count=0, identifiers: list = [], refresh: bool = True
 ):
+    await log_subscriptions(authed)
+    print("Loading Subscriptions")
     results = await authed.get_subscriptions(identifiers=identifiers, refresh=refresh)
-    if os.path.exists(os.path.join(metadata_directory, 'Subscriptions.csv')):
-        os.remove(os.path.join(metadata_directory, "Subscriptions.csv"))
-        write_csv_data(os.path.join(metadata_directory, 'Subscriptions.csv'), [
-                       'Id', 'username', 'name', 'Price', 'renewedAt'])
-    with mysql.connector.connect(host="192.168.1.162", user="python", password="Jnmjvt20!", database="vue_data", port=6603) as conn:
-        cur = conn.cursor()
-        sql = "INSERT INTO Users (userid,username,name,subscription_price,renewal_date) VALUES (%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE name = %s, subscription_price = %s, renewal_date = %s;"
-        for res in results:
-            cur.execute(sql, (res.id, res.username, res.name, res.subscribePrice,
-                        res.subscribedByData['renewedAt'], res.name, res.subscribePrice, res.subscribedByData['renewedAt']))
-            write_csv_data(os.path.join(metadata_directory, 'Subscriptions.csv'), [
-                res.id, res.username, res.name, res.subscribePrice, res.subscribedByData['renewedAt']])
-        conn.commit()
+    
+    # with mysql.connector.connect(host=os.environ.get('sqladd', '192.168.1.128'), user=os.environ.get('SQL_USER','python'), password=os.environ.get('SQL_PASS', 'Jnmjvt20!'), database=os.environ.get('SQL_DATABASE','vue_data'), port=int(os.environ.get('sqlport', 3306))) as conn:
+        # cur = conn.cursor()
+        # sql = "INSERT INTO Users (userid,username,name,subscription_price,renewal_date,subscribed,Lists) VALUES (%s,%s,%s,%s,%s,1,%s) ON DUPLICATE KEY UPDATE name = %s, subscription_price = %s, renewal_date = %s,subscribed=1,Lists=%s;"
+        # for res in results:
+        #     u = await authed.get_user(res.id)
+        #     cur.execute(sql, (res.id, res.username, res.name, res.subscribePrice,
+        #                 res.subscribedByData['renewedAt'], u.custom_lists, res.name, res.subscribePrice, res.subscribedByData['renewedAt'], u.custom_lists))
+        #     conn.commit()
+        #     # write_csv_data(os.path.join(metadata_directory, 'Subscriptions.csv'), [
+        #     #     res.id, res.username, res.name, res.subscribePrice, res.subscribedByData['renewedAt']])
+        # if(len(results) > 3):
+        #     format_strings = ','.join(['%s'] * len(results))
+        #     cur.execute(
+        #         "UPDATE Users SET subscribed=0 WHERE userId NOT IN (%s)" % format_strings, tuple([f.id for f in results]))
+        # conn.commit()
         # cur.close()
 
-        if os.path.exists(os.path.join(metadata_directory, 'Bookmarks.csv')):
-            os.remove(os.path.join(metadata_directory, "Bookmarks.csv"))
-            write_csv_data(os.path.join(metadata_directory, "Bookmarks.csv"), [
-                "id", "username", "name", "Normal Price", "Sale Price"])
+        # if os.path.exists(os.path.join(metadata_directory, 'Bookmarks.csv')):
+        #     os.remove(os.path.join(metadata_directory, "Bookmarks.csv"))
+        #     write_csv_data(os.path.join(metadata_directory, "Bookmarks.csv"), [
+        #         "id", "username", "name", "Normal Price", "Sale Price"])
 
-        sql = "INSERT INTO Users (userid,username,name,subscription_price,promo_price) VALUES (%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE name = %s, subscription_price = %s, promo_price = %s;"
-        lists = await authed.get_lists()
-        for lst in [item for item in lists if item.get('name') == 'Bookmarks']:
-            for user in await authed.get_lists_users(lst.get('id')):
-                u = await authed.get_user(user.get('id'))
-                about = getattr(u, 'about', '')
-                current_price = user.get('subscribePrice')
-                if user.get('promoOffers') != None:
-                    for p in user.get('promoOffers'):
-                        if p.get('price') < current_price:
-                            current_price = p.get('price')
-                if user.get('promotions') != None:
-                    for p in user.get('promotions'):
-                        if p.get('price') < current_price:
-                            current_price = p.get('price')
-                # if(current_price < user.get('subscribePrice') or user.get('subscribePrice') == 0):
-                cur.execute(sql, (user.get('id'), user.get('username'), user.get('name'), user.get(
-                    'subscribePrice'), current_price, user.get('name'), user.get('subscribePrice'), current_price))
-                write_csv_data(os.path.join(metadata_directory, "Bookmarks.csv"), [
-                    user.get('id'), user.get('username'), user.get('name'), user.get('subscribePrice'), current_price])
-        conn.commit()
-        cur.close()
+        # sql = "INSERT INTO Users (userid,username,name,subscription_price,promo_price,Lists) VALUES (%s,%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE name = %s, subscription_price = %s, promo_price = %s,Lists=%s;"
+    lists = await authed.get_lists()
+        # for lst in lists:
+        #     for user in await authed.get_lists_users(lst.get('id')):
+        #         if(user.get('id') in [r.id for r in results]):
+        #             continue
+        #         u = await authed.get_user(user.get('id'))
+        #         about = getattr(u, 'about', '')
+        #         current_price = user.get('subscribePrice')
+        #         if user.get('promoOffers') != None:
+        #             for p in user.get('promoOffers'):
+        #                 if p.get('price') < current_price:
+        #                     current_price = p.get('price')
+        #         if user.get('promotions') != None:
+        #             for p in user.get('promotions'):
+        #                 if p.get('price') < current_price:
+        #                     current_price = p.get('price')
+        #         # if(current_price < user.get('subscribePrice') or user.get('subscribePrice') == 0):
+        #         cur.execute(sql, (user.get('id'), user.get('username'), user.get('name'), user.get(
+        #             'subscribePrice'), current_price, getattr(u,'custom_lists',getattr(u,'message','')), user.get('name'), user.get('subscribePrice'), current_price, getattr(u,'custom_lists',getattr(u,'message',''))))
+        #         # write_csv_data(os.path.join(metadata_directory, "Bookmarks.csv"), [
+        #         #     user.get('id'), user.get('username'), user.get('name'), user.get('subscribePrice'), current_price])
+        # conn.commit()
+        # cur.close()
     subscriptions_temp = []
     for lst in [item for item in lists if item.get('name') in whitelists]:
         for user in await authed.get_lists_users(lst.get('id')):
@@ -1443,6 +1612,7 @@ async def manage_subscriptions(
                 continue
         results2.append(result)
     authed.subscriptions = results2
+    print("Done Loading Subscriptions")
     return results2
 
 
@@ -1504,3 +1674,51 @@ def format_options(
                     string += seperator
                 count += 1
     return [names, string]
+
+async def LogUser(authed, database_session, user_table, queue):
+    while True:
+        res = await queue.get()
+        if(isinstance(res,create_user)):
+            u = res
+            uID=res.id
+        else:
+            u = await authed.get_user(res.get("id"))
+            uID=res.get("id")
+
+        if(not isinstance(u,create_user)):
+            u=create_user(res)
+
+        subscribed=getattr(u,"subscribedByData",None) is not None
+        lists=u.custom_lists
+        current_price = getattr(u,"subscribePrice",0)
+        if getattr(u,"promoOffers",None) != None:
+            for p in getattr(u,"promoOffers",None):
+                if p.get('price') < current_price:
+                    current_price = p.get('price')
+        if getattr(u,"promotions",None) != None:
+            for p in getattr(u,"promotions",None):
+                if p.get('price') < current_price:
+                    current_price = p.get('price')
+        # else:
+        #     u=create_user(res)
+        #     subscribed=getattr(res,"subscribedByData",None) is not None
+        #     lists=res.custom_lists
+        #     current_price=0
+
+        db_result = database_session.query(user_table)
+        user_db=db_result.filter_by(userId=uID).first()
+        if not user_db:
+            user_db=user_table()
+
+        user_db.userId=uID
+        user_db.username=u.username
+        user_db.name=u.name
+        user_db.subscribed=subscribed
+        user_db.subscription_price=u.subscribePrice
+        user_db.promo_price=current_price
+        user_db.renewal_date=u.subscribedByData['renewedAt'] if u.subscribedByData is not None else None
+        user_db.Lists=lists
+
+        database_session.add(user_db)
+
+        queue.task_done()

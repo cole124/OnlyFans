@@ -1,25 +1,40 @@
 #!/usr/bin/env python3
 import sys
 import argparse
+import asyncio
+import os
 import traceback
 import time
-import os
-import asyncio
-import tests.main_test as main_test
-from helpers.CombineDatabases import process_root, CombineFiles, dbFiles
+from rich import panel
+from rich.layout import Layout
+from rich.live import Live
+from rich.panel import Panel
+from rich.prompt import Prompt
+from rich.table import Table
+from rich.text import Text
+from helpers.CombineDatabases import MergeData
+try:
+    import tests.main_test as main_test
+except SyntaxError:
+    print("Execute the script with Python 3.10\nPress enter to continue")
+    exit()
 
 parser = argparse.ArgumentParser(description='Process some integers.')
 
-parser.add_argument('--like_content', dest='like_content', default='', choices=['true', 'false'],
+parser.add_argument('--like_content', dest='like_content', default=os.environ.get('like_content', ''), choices=['true', 'false'],
                     help='Like Users content while processing')
 
-parser.add_argument('--models', dest='models', default='')
+parser.add_argument('--models', dest='models',
+                    default=os.environ.get('models', ''))
 
-parser.add_argument('--whitelist', dest='whitelist', default='')
+parser.add_argument('--whitelist', dest='whitelist',
+                    default=os.environ.get('whitelist', ''))
 
-parser.add_argument('--blacklist', dest='blacklist', default='')
+parser.add_argument('--blacklist', dest='blacklist',
+                    default=os.environ.get('blacklist', ''))
 
 args = parser.parse_args()
+
 
 try:
 
@@ -59,6 +74,36 @@ try:
         # logging.basicConfig(level=logging.DEBUG, format="%(message)s")
         async def main():
             while True:
+
+                class live_display:
+                    def __init__(self) -> None:
+                        self.layout = Layout()
+                        self.layout.split_column(
+                            Layout(Text(" "), name="blank", size=1),
+                            Layout(
+                                Panel("", padding=1, title="N/A"), name="header", size=3
+                            ),
+                            Layout(name="upper"),
+                            Layout(Panel(Text(), title="TEXT"), name="lower", size=3),
+                        )
+                        self.layout["upper"].split_row(
+                            Layout(Panel("", title="N/A"), name="left"),
+                            Layout(Panel("", title="N/A"), name="right", ratio=2),
+                        )
+                        self.live = Live(self.layout, refresh_per_second=4)
+                        self.panels = self._panels(self.layout)
+
+                    class _panels:
+                        def __init__(self, layout: Layout) -> None:
+                            self.header = layout["header"]
+                            self.options = layout["upper"]["left"].renderable
+                            self.body = True
+                            self.text = True
+
+                        def update_option_text(self, text: str):
+                            self.options.renderable = text
+
+                # l_d = live_display()
                 if domain:
                     if site_names:
                         site_name = domain
@@ -66,41 +111,40 @@ try:
                         print(string)
                         continue
                 else:
+                    # l_d.panels.update_option_text(string)
                     print(string)
-                    site_choice = str(input())
-                    site_choice = int(site_choice)
-                    site_name = site_names[site_choice]
+                    try:
+                        site_choice = str(input())
+                        site_choice = int(site_choice)
+                        site_name = site_names[site_choice]
+                    except (ValueError, IndexError):
+                        continue
                 site_name_lower = site_name.lower()
                 api = await main_datascraper.start_datascraper(
                     json_config, site_name_lower
                 )
                 if api:
-                    for a in api.auths:
-                        for s in a.subscriptions:
-                            dbFiles.append(s.download_info.get(
-                                "metadata_locations").get("Posts"))
                     api.close_pools()
 
-                if(len(dbFiles) == 0):
-                    process_root(json_sites['onlyfans']
-                                 ['settings']['metadata_directories'][0])
-
-                CombineFiles()
+                # if(len(dbFiles) == 0):
+                #     process_root(json_sites['onlyfans']
+                #                  ['settings']['metadata_directories'][0])
+                #MergeData()
+                # CombineFiles()
 
                 if exit_on_completion:
                     print("Now exiting.")
-                    exit(0)
+                    break
                 elif not infinite_loop:
                     print("Input anything to continue")
                     input()
                 elif loop_timeout:
                     print("Pausing scraper for " + loop_timeout + " seconds.")
-                    time.sleep(int(loop_timeout))
-                    #json_settings = json_config["settings"]
+                    await asyncio.sleep(float(loop_timeout))
 
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(main())
-        loop.close()
+        if sys.platform == "win32":
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+        asyncio.run(main())
 except Exception as e:
     print(traceback.format_exc())
-    input()

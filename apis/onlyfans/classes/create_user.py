@@ -14,11 +14,12 @@ from apis.onlyfans.classes.extras import (
     endpoint_links,
     error_details,
     handle_refresh,
+    remove_errors,
 )
 
 
 class create_user:
-    def __init__(self, option={}, subscriber: create_auth = None) -> None:
+    def __init__(self, option:dict[str,Any]={}, subscriber: create_auth = None) -> None:
         self.view: str = option.get("view")
         self.avatar: Any = option.get("avatar")
         self.avatarThumbs: Any = option.get("avatarThumbs")
@@ -102,16 +103,14 @@ class create_user:
         self.isOtpEnabled: bool = option.get("isOtpEnabled")
         self.email: str = option.get("email")
         self.isEmailChecked: bool = option.get("isEmailChecked")
-        self.isLegalApprovedAllowed: bool = option.get(
-            "isLegalApprovedAllowed")
+        self.isLegalApprovedAllowed: bool = option.get("isLegalApprovedAllowed")
         self.isTwitterConnected: bool = option.get("isTwitterConnected")
         self.twitterUsername: Any = option.get("twitterUsername")
         self.isAllowTweets: bool = option.get("isAllowTweets")
-        self.isPaymentCardConnected: bool = option.get(
-            "isPaymentCardConnected")
+        self.isPaymentCardConnected: bool = option.get("isPaymentCardConnected")
         self.referalUrl: str = option.get("referalUrl")
         self.isVisibleOnline: bool = option.get("isVisibleOnline")
-        self.subscribesCount: int = option.get("subscribesCount")
+        self.subscribesCount: int = option.get("subscribesCount",0)
         self.canPinPost: bool = option.get("canPinPost")
         self.hasNewAlerts: bool = option.get("hasNewAlerts")
         self.hasNewHints: bool = option.get("hasNewHints")
@@ -131,13 +130,11 @@ class create_user:
         self.hasPurchasedPosts: bool = option.get("hasPurchasedPosts")
         self.isEmailRequired: bool = option.get("isEmailRequired")
         self.isPayoutLegalApproved: bool = option.get("isPayoutLegalApproved")
-        self.payoutLegalApproveState: str = option.get(
-            "payoutLegalApproveState")
+        self.payoutLegalApproveState: str = option.get("payoutLegalApproveState")
         self.payoutLegalApproveRejectReason: Any = option.get(
             "payoutLegalApproveRejectReason"
         )
-        self.enabledImageEditorForChat: bool = option.get(
-            "enabledImageEditorForChat")
+        self.enabledImageEditorForChat: bool = option.get("enabledImageEditorForChat")
         self.shouldReceiveLessNotifications: bool = option.get(
             "shouldReceiveLessNotifications"
         )
@@ -149,13 +146,11 @@ class create_user:
         self.countPriorityChat: int = option.get("countPriorityChat")
         self.hasScenario: bool = option.get("hasScenario")
         self.isWalletAutorecharge: bool = option.get("isWalletAutorecharge")
-        self.walletAutorechargeAmount: int = option.get(
-            "walletAutorechargeAmount")
+        self.walletAutorechargeAmount: int = option.get("walletAutorechargeAmount")
         self.walletAutorechargeMin: int = option.get("walletAutorechargeMin")
         self.walletFirstRebills: bool = option.get("walletFirstRebills")
         self.closeFriends: int = option.get("closeFriends")
-        self.canAlternativeWalletTopUp: bool = option.get(
-            "canAlternativeWalletTopUp")
+        self.canAlternativeWalletTopUp: bool = option.get("canAlternativeWalletTopUp")
         self.needIVApprove: bool = option.get("needIVApprove")
         self.ivStatus: Any = option.get("ivStatus")
         self.ivFailReason: Any = option.get("ivFailReason")
@@ -165,16 +160,12 @@ class create_user:
         self.ivForcedVerified: bool = option.get("ivForcedVerified")
         self.ivFlow: str = option.get("ivFlow")
         self.isVerifiedReason: bool = option.get("isVerifiedReason")
-        self.canReceiveManualPayout: bool = option.get(
-            "canReceiveManualPayout")
-        self.canReceiveStripePayout: bool = option.get(
-            "canReceiveStripePayout")
-        self.manualPayoutPendingDays: int = option.get(
-            "manualPayoutPendingDays")
+        self.canReceiveManualPayout: bool = option.get("canReceiveManualPayout")
+        self.canReceiveStripePayout: bool = option.get("canReceiveStripePayout")
+        self.manualPayoutPendingDays: int = option.get("manualPayoutPendingDays")
         self.isNeedConfirmPayout: bool = option.get("isNeedConfirmPayout")
         self.canStreaming: bool = option.get("canStreaming")
-        self.isScheduledStreamsAllowed: bool = option.get(
-            "isScheduledStreamsAllowed")
+        self.isScheduledStreamsAllowed: bool = option.get("isScheduledStreamsAllowed")
         self.canMakeExpirePosts: bool = option.get("canMakeExpirePosts")
         self.trialMaxDays: int = option.get("trialMaxDays")
         self.trialMaxExpiresDays: int = option.get("trialMaxExpiresDays")
@@ -194,8 +185,7 @@ class create_user:
         self.claimedOffersCount: int = option.get("claimedOffersCount")
         self.withdrawalPeriod: str = option.get("withdrawalPeriod")
         self.canAddStory: bool = option.get("canAddStory")
-        self.canAddSubscriberByBundle: bool = option.get(
-            "canAddSubscriberByBundle")
+        self.canAddSubscriberByBundle: bool = option.get("canAddSubscriberByBundle")
         self.isSuggestionsOptOut: bool = option.get("isSuggestionsOptOut")
         self.canCreateFundRaising: bool = option.get("canCreateFundRaising")
         self.minFundRaisingTarget: int = option.get("minFundRaisingTarget")
@@ -210,10 +200,8 @@ class create_user:
         self.minPayoutSumm: int = option.get("minPayoutSumm")
         self.canHasW9Form: bool = option.get("canHasW9Form")
         self.isVatRequired: bool = option.get("isVatRequired")
-        self.isCountryVatRefundable: bool = option.get(
-            "isCountryVatRefundable")
-        self.isCountryVatNumberCollect: bool = option.get(
-            "isCountryVatNumberCollect")
+        self.isCountryVatRefundable: bool = option.get("isCountryVatRefundable")
+        self.isCountryVatNumberCollect: bool = option.get("isCountryVatNumberCollect")
         self.vatNumberName: str = option.get("vatNumberName")
         self.isCountryWithVat: bool = option.get("isCountryWithVat")
         self.connectedOfAccounts: list = option.get("connectedOfAccounts")
@@ -226,6 +214,9 @@ class create_user:
         self.scraped = content_types()
         self.temp_scraped = content_types()
         self.session_manager = None
+        self.custom_lists = ",".join([l.get("name") for l in option.get(
+            "listsStates", []) if l.get("type") == "custom" or (l.get("name") == "Bookmarks" and l.get("hasUser"))])
+
         if subscriber:
             self.session_manager = subscriber.session_manager
         self.download_info = {}
@@ -241,7 +232,9 @@ class create_user:
             status = True
         return status
 
-    async def get_stories(self, refresh=True, limit=100, offset=0) -> list:
+    async def get_stories(
+        self, refresh=True, limit=100, offset=0
+    ) -> list[create_story]:
         api_type = "stories"
         if not refresh:
             result = handle_refresh(self, api_type)
@@ -263,7 +256,7 @@ class create_user:
 
     async def get_highlights(
         self, identifier="", refresh=True, limit=100, offset=0, hightlight_id=""
-    ) -> list:
+    ) -> Union[list[create_highlight], list[create_story]]:
         api_type = "highlights"
         if not refresh:
             result = handle_refresh(self, api_type)
@@ -276,7 +269,7 @@ class create_user:
                 identifier=identifier, global_limit=limit, global_offset=offset
             ).list_highlights
             results = await self.session_manager.json_request(link)
-            results = await api_helper.remove_errors(results)
+            results = await remove_errors(results)
             results = [create_highlight(x) for x in results]
         else:
             link = endpoint_links(
@@ -287,7 +280,7 @@ class create_user:
         return results
 
     async def get_posts(
-        self, links: Optional[list] = None, limit=10, offset=0, refresh=True
+        self, links: Optional[list[str]] = None, limit=10, offset=0, refresh=True
     ) -> Optional[list[create_post]]:
         api_type = "posts"
         if not refresh:
@@ -311,8 +304,9 @@ class create_user:
         results = await api_helper.scrape_endpoint_links(
             links, self.session_manager, api_type
         )
-        final_results = [create_post(x, self)
-                         for x in results if not x.get("isReportedByMe")]
+        final_results = self.finalize_content_set(results)
+#        final_results = [create_post(x, self)
+#                         for x in results if not x.get("isReportedByMe")]                 
         self.temp_scraped.Posts = final_results
         return final_results
 
@@ -337,7 +331,7 @@ class create_user:
         offset=0,
         refresh=True,
         inside_loop=False,
-    ) -> list:
+    ) -> Optional[list]:
         api_type = "messages"
         if not self.subscriber or self.is_me():
             return []
@@ -355,14 +349,13 @@ class create_user:
                 identifier=self.id, global_limit=limit, global_offset=offset
             ).message_api
             links.append(link)
-        links2 = api_helper.calculate_the_unpredictable(
-            link, limit, multiplier)
+        links2 = api_helper.calculate_the_unpredictable(link, limit, multiplier)
         if not inside_loop:
             links += links2
         else:
             links = links2
         results = await self.session_manager.async_requests(links)
-        results = await api_helper.remove_errors(results)
+        results = await remove_errors(results)
         results = [x for x in results if x]
         has_more = results[-1]["hasMore"] if results else False
         final_results = [x["list"] for x in results if "list" in x]
@@ -408,10 +401,9 @@ class create_user:
             result = handle_refresh(self, api_type)
             if result:
                 return result
-        link = endpoint_links(global_limit=limit,
-                              global_offset=offset).archived_stories
+        link = endpoint_links(global_limit=limit, global_offset=offset).archived_stories
         results = await self.session_manager.json_request(link)
-        results = await api_helper.remove_errors(results)
+        results = await remove_errors(results)
         results = [create_story(x) for x in results]
         return results
 
@@ -440,7 +432,8 @@ class create_user:
         results = await api_helper.scrape_endpoint_links(
             links, self.session_manager, api_type
         )
-        final_results = [create_post(x, self) for x in results if x]
+        final_results = self.finalize_content_set(results)
+
         self.temp_scraped.Archived.Posts = final_results
         return final_results
 
@@ -529,3 +522,14 @@ class create_user:
 
     def set_scraped(self, name, scraped):
         setattr(self.scraped, name, scraped)
+    def finalize_content_set(self,results:list[dict[str,str]]):
+        final_results:list[create_post] = []
+        for result in results:
+            content_type = result["responseType"]
+            match content_type:
+                case "post":
+                    created = create_post(result,self)
+                    final_results.append(created)
+                case _:
+                    print
+        return final_results

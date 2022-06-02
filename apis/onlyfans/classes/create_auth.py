@@ -1,9 +1,10 @@
 import asyncio
+from asyncio.tasks import Task
 import math
 from datetime import datetime
 from itertools import chain, product
 from multiprocessing.pool import Pool
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Coroutine, Dict, List, Optional, Union
 
 import jsonpickle
 from apis import api_helper
@@ -41,8 +42,7 @@ class create_auth(create_user):
         self.paid_content = []
         temp_pool = pool if pool else api_helper.multiprocessing()
         self.pool = temp_pool
-        self.session_manager = api_helper.session_manager(
-            self, max_threads=max_threads)
+        self.session_manager = api_helper.session_manager(self, max_threads=max_threads)
         self.auth_details: auth_details = auth_details()
         self.profile_directory = option.get("profile_directory", "")
         self.guest = False
@@ -58,7 +58,7 @@ class create_auth(create_user):
             if found_attr:
                 setattr(self, key, value)
 
-    async def login(self, max_attempts: int = 1, guest: bool = False):
+    async def login(self, max_attempts: int = 10, guest: bool = False):
         auth_version = "(V1)"
         auth_items = self.auth_details
         if not auth_items:
@@ -71,7 +71,7 @@ class create_auth(create_user):
         auth_id = str(auth_items.cookie.auth_id)
         # expected string error is fixed by auth_id
         dynamic_rules = self.session_manager.dynamic_rules
-        a: List[Any] = [dynamic_rules, auth_id, user_agent, link]
+        a: List[Any] = [dynamic_rules, auth_id, auth_items.x_bc, user_agent, link]
         self.session_manager.headers = create_headers(*a)
         if guest:
             print("Guest Authentication")
@@ -95,8 +95,7 @@ class create_auth(create_user):
                             max_count = 3
                             while count < max_count + 1:
                                 print(
-                                    "2FA Attempt " +
-                                    str(count) + "/" + str(max_count)
+                                    "2FA Attempt " + str(count) + "/" + str(max_count)
                                 )
                                 code = input("Enter 2FA Code\n")
                                 data = {"code": code, "rememberMe": True}
@@ -193,6 +192,8 @@ class create_auth(create_user):
         link = endpoint_links(identifier).users
         response = await self.session_manager.json_request(link)
         if not isinstance(response, error_details):
+            if not response:
+                print
             response["session_manager"] = self.session_manager
             response = create_user(response, self)
         return response
@@ -226,25 +227,24 @@ class create_auth(create_user):
 
     async def get_subscriptions(
         self,
-        resume=None,
-        refresh=True,
-        identifiers: list = [],
-        extra_info=True,
-        limit=20,
-        offset=0,
+        refresh: bool = True,
+        identifiers: list[int | str] = [],
+        extra_info: bool = True,
+        limit: int = 20,
     ) -> list[create_user]:
         if not self.active:
             return []
         if not refresh:
             subscriptions = self.subscriptions
             return subscriptions
+        # if self.subscribesCount > 900:
+        #     limit = 100
         ceil = math.ceil(self.subscribesCount / limit)
         a = list(range(ceil))
-        offset_array = []
+        offset_array: list[str] = []
         for b in a:
             b = b * limit
-            link = endpoint_links(global_limit=limit,
-                                  global_offset=b).subscriptions
+            link = endpoint_links(global_limit=limit, global_offset=b).subscriptions
             offset_array.append(link)
 
         # Following logic is unique to creators only
@@ -274,10 +274,10 @@ class create_auth(create_user):
             results.append(subscription)
         if not identifiers:
 
-            async def multi(item):
+            async def multi(item: str):
                 link = item
                 subscriptions = await self.session_manager.json_request(link)
-                valid_subscriptions = []
+                valid_subscriptions: list[create_user] = []
                 extras = {}
                 extras["auth_check"] = ""
                 if isinstance(subscriptions, error_details):
@@ -287,17 +287,19 @@ class create_auth(create_user):
                     for subscription in subscriptions
                     if "error" != subscription
                 ]
-                tasks = []
+                tasks: list[Task[create_user | error_details]] = []
                 for subscription in subscriptions:
                     subscription["session_manager"] = self.session_manager
                     if extra_info:
-                        task = self.get_user(subscription["username"])
+                        task = asyncio.create_task(
+                            self.get_user(subscription["username"])
+                        )
                         tasks.append(task)
-                tasks = await asyncio.gather(*tasks)
-                for task in tasks:
-                    if isinstance(task, error_details):
+                results2 = await asyncio.gather(*tasks)
+                for result in results2:
+                    if isinstance(result, error_details):
                         continue
-                    subscription2: create_user = task
+                    subscription2: create_user = result
                     for subscription in subscriptions:
                         if subscription["id"] != subscription2.id:
                             continue
@@ -370,8 +372,7 @@ class create_auth(create_user):
             link = endpoint_links(
                 identifier=self.id, global_limit=limit, global_offset=offset
             ).list_chats
-        links2 = api_helper.calculate_the_unpredictable(
-            link, limit, multiplier)
+        links2 = api_helper.calculate_the_unpredictable(link, limit, multiplier)
         if not inside_loop:
             links += links2
         else:
@@ -433,7 +434,7 @@ class create_auth(create_user):
         self,
         check: bool = False,
         refresh: bool = True,
-        limit: int = 99,
+        limit: int = 10,
         offset: int = 0,
         inside_loop: bool = False,
     ) -> list[Union[create_message, create_post]]:
@@ -444,12 +445,11 @@ class create_auth(create_user):
             result = handle_refresh(self, api_type)
             if result:
                 return result
-        link = endpoint_links(global_limit=limit,
-                              global_offset=offset).paid_api
+        link = endpoint_links(global_limit=limit, global_offset=offset).paid_api
         final_results = await self.session_manager.json_request(link)
         if not isinstance(final_results, error_details):
             if len(final_results) >= limit and not check:
-                results2 = self.get_paid_content(
+                results2 = await self.get_paid_content(
                     limit=limit, offset=limit + offset, inside_loop=True
                 )
                 final_results.extend(results2)
@@ -468,12 +468,6 @@ class create_auth(create_user):
                     elif final_result["responseType"] == "post":
                         user = create_user(final_result["author"], self)
                         content = create_post(final_result, user)
-                        if not content.isFavorite and content.canToggleFavorite and content.mediaCount > 0 and self.extras['settings']['settings']['like_content']:
-                            tmp = await content.favorite()
-                            # and tmp.message == 'Daily limit exceeded. Please try again later.':
-                            # if hasattr(tmp, 'message'):
-                            #     self.extras['settings']['settings']['like_content'] = False
-                        print
                     if content:
                         temp.append(content)
                 final_results = temp

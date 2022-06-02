@@ -1,0 +1,29 @@
+version: '3.4'
+
+services:
+  onlyfans:
+    image: cshackleton/onlyfans
+    restart: never
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    volumes:
+      - usb:/app/data
+    networks:
+      - onlyfans_default
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TZ="America/Chicago"
+      - sqladd=192.168.1.128
+      - sqlport=3306
+      - SQL_USER="python"
+      - SQL_PASS="Jnmjvt20!""
+      - SQL_DATABASE=vue_data
+      - DL_LIMIT=2000
+      - PB_KEY=o.uv6IsOvd9DfpkznAToWArPi4p1mvy4qC
+volumes:
+  usb:
+    external: true
+networks:
+  onlyfans_default:
+    external: true

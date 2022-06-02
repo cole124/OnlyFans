@@ -6,10 +6,11 @@ import sqlalchemy
 
 
 class template_media_table:
-    __tablename__ = "medias"
+    __tablename__ = "medias_temp"
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
     media_id = sqlalchemy.Column(sqlalchemy.Integer, unique=True)
     post_id = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
+    user_id = sqlalchemy.Column(sqlalchemy.BIGINT, nullable=False)
     link = cast(str, sqlalchemy.Column(sqlalchemy.String))
     directory = cast(str, sqlalchemy.Column(sqlalchemy.String))
     filename = cast(str, sqlalchemy.Column(sqlalchemy.String))
@@ -23,10 +24,12 @@ class template_media_table:
     liked = cast(bool, sqlalchemy.Column(sqlalchemy.Integer, default=0))
     thumbnail = cast(str, sqlalchemy.Column(sqlalchemy.String))
     duration = sqlalchemy.Column(sqlalchemy.Integer, default=0)
+    width = cast(int, sqlalchemy.Column(sqlalchemy.Integer, default=None))
+    height = cast(int, sqlalchemy.Column(sqlalchemy.Integer, default=None))
 
     def legacy(self, Base):
         class legacy_media_table(Base):
-            __tablename__ = "medias"
+            __tablename__ = "medias_temp"
             id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
             post_id = sqlalchemy.Column(sqlalchemy.Integer)
             link = sqlalchemy.Column(sqlalchemy.String)
@@ -43,7 +46,7 @@ class template_media_table:
 
     def legacy_2(self, Base):
         class legacy_media_table(Base):
-            __tablename__ = "medias"
+            __tablename__ = "medias_temp"
             id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
             media_id = sqlalchemy.Column(sqlalchemy.Integer, unique=True)
             post_id = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)

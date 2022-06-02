@@ -1,4 +1,5 @@
 import os
+import time
 import sqlalchemy
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.orm.session import Session, sessionmaker
@@ -29,17 +30,32 @@ def create_database_session(
 
 
 def create_mysql_database_session() -> tuple[scoped_session, Engine]:
-    # kwargs = {}
+    kwargs = {}
     # if connection_type == "mysql+mysqldb://":
-    #     kwargs["pool_size"] = pool_size
-    #     kwargs["pool_pre_ping"] = True
-    #     kwargs["max_overflow"] = -1
-    #     kwargs["isolation_level"] = "READ COMMITTED"
+    kwargs["pool_size"] = 5
+    kwargs["pool_pre_ping"] = True
+    kwargs["max_overflow"] = -1
+    kwargs["isolation_level"] = "READ COMMITTED"
 
     engine = sqlalchemy.create_engine(
-        "mysql+mysqlconnector://python:Jnmjvt20!@192.168.1.162:6603/vue_data"
+        "mysql+mysqlconnector://{}:{}@{}:{}/{}".format(os.environ.get('SQL_USER','python'),os.environ.get('SQL_PASS', 'Jnmjvt20!'),os.environ.get('sqladd', '192.168.1.128'),os.environ.get('sqlport', 3306),os.environ.get('SQL_DATABASE','vue_data')), **kwargs
     )
-    session_factory = sessionmaker(bind=engine, autocommit=True)
+    session_factory = sessionmaker(bind=engine, autocommit=True,autoflush=False)
+    Session = scoped_session(session_factory)
+    return Session, engine
+
+def create_mssql_database_session() -> tuple[scoped_session, Engine]:
+    kwargs = {}
+    # if connection_type == "mysql+mysqldb://":
+    kwargs["pool_size"] = 5
+    kwargs["pool_pre_ping"] = True
+    kwargs["max_overflow"] = -1
+    kwargs["isolation_level"] = "READ COMMITTED"
+
+    engine = sqlalchemy.create_engine(
+        "mssql+pyodbc://{}:{}@{}/{}?driver=FreeTDS&port=1433&odbc_options='TDS_Version=8.0'".format(os.environ.get('SQL_USER','python'),os.environ.get('SQL_PASS', 'Jnmjvt20!'),os.environ.get('sqladd', '192.168.1.128'),os.environ.get('SQL_DATABASE','vue_data'))
+    )
+    session_factory = sessionmaker(bind=engine, autocommit=True,autoflush=False)
     Session = scoped_session(session_factory)
     return Session, engine
 
@@ -76,6 +92,16 @@ def run_migrations(alembic_directory: str, database_path: str) -> None:
             print(e)
             print
 
+def FlushDatabase(database_session,cnt):
+    cnt+=1
+    try:
+        database_session.flush()
+    except Exception as inst:
+        if cnt<=9:
+            time.sleep(cnt*10)
+            FlushDatabase(database_session,cnt)
+        else:
+            print(f"Unexpected error committing. Count: {cnt}", inst)
 
 class database_collection(object):
     def __init__(self) -> None:

@@ -12,7 +12,9 @@ import math
 import os
 import platform
 import random
+import subprocess
 import re
+import secrets
 import shutil
 import string
 import traceback
@@ -20,7 +22,7 @@ from datetime import datetime
 from itertools import zip_longest
 from multiprocessing.dummy import Pool as ThreadPool
 from types import SimpleNamespace
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union, BinaryIO
 
 import classes.make_settings as make_settings
 import classes.prepare_webhooks as prepare_webhooks
@@ -35,6 +37,8 @@ from aiohttp.client_exceptions import (
 )
 from aiohttp.client_reqrep import ClientResponse
 from apis.onlyfans import onlyfans as OnlyFans
+from apis.fansly import fansly as Fansly
+from apis.starsavn import starsavn as StarsAVN
 from apis.onlyfans.classes import create_user
 from apis.onlyfans.classes.create_auth import create_auth
 from apis.onlyfans.classes.extras import content_types
@@ -56,7 +60,7 @@ proxies = None
 cert = None
 
 
-def assign_vars(config):
+def assign_vars(config: dict[Any, Any]):
     global json_global_settings, min_drive_space, webhooks, max_threads, proxies, cert
 
     json_config = config
@@ -83,7 +87,7 @@ def rename_duplicates(seen, filename):
 
 
 def parse_links(site_name, input_link):
-    if site_name in {"onlyfans", "starsavn"}:
+    if site_name in {"onlyfans", "fansly", "starsavn"}:
         username = input_link.rsplit("/", 1)[-1]
         return username
 
@@ -99,7 +103,7 @@ def parse_links(site_name, input_link):
             return input_link
 
 
-def clean_text(string, remove_spaces=False):
+def clean_text(string: str, remove_spaces: bool = False):
     matches = ["\n", "<br>"]
     for m in matches:
         string = string.replace(m, " ").strip()
@@ -144,13 +148,15 @@ async def async_downloads(
         session_m = subscription.session_manager
         proxies = session_m.proxies
         proxy = (
-            session_m.proxies[random.randint(
-                0, len(proxies) - 1)] if proxies else ""
+            session_m.proxies[random.randint(0, len(proxies) - 1)] if proxies else ""
         )
         connector = ProxyConnector.from_url(proxy) if proxy else None
+        final_cookies: dict[Any, Any] = (
+            session_m.auth.auth_details.cookie.format() if session_m.use_cookies else {}
+        )
         async with ClientSession(
             connector=connector,
-            cookies=session_m.auth.auth_details.cookie.format(),
+            cookies=final_cookies,
             read_timeout=None,
         ) as session:
             tasks = []
@@ -173,8 +179,7 @@ async def async_downloads(
             async def check(
                 download_item: template_media_table, response: ClientResponse
             ):
-                filepath = os.path.join(
-                    download_item.directory, download_item.filename)
+                filepath = os.path.join(download_item.directory, download_item.filename)
                 response_status = False
                 if response.status == 200:
                     response_status = True
@@ -253,8 +258,7 @@ async def async_downloads(
 
                     break
 
-            max_threads = api_helper.calculate_max_threads(
-                session_m.max_threads)
+            max_threads = api_helper.calculate_max_threads(session_m.max_threads)
             download_groups = grouper(max_threads, download_list)
             for download_group in download_groups:
                 tasks = []
@@ -346,8 +350,7 @@ def legacy_database_fixer(database_path, database, database_name, database_exist
             datas.append(new_item)
         print
         database_session.close()
-        export_sqlite2(old_database_path, datas,
-                       database_name, legacy_fixer=True)
+        export_sqlite2(old_database_path, datas, database_name, legacy_fixer=True)
 
 
 async def fix_sqlite(
@@ -384,8 +387,7 @@ async def fix_sqlite(
     for final_metadata in final_metadatas:
         archived_database_path = os.path.join(final_metadata, "Archived.db")
         if os.path.exists(archived_database_path):
-            Session2, engine = db_helper.create_database_session(
-                archived_database_path)
+            Session2, engine = db_helper.create_mysql_database_session()
             database_session: Session = Session2()
             cwd = os.getcwd()
             for api_type, value in items:
@@ -396,11 +398,9 @@ async def fix_sqlite(
                 )
                 result = inspect(engine).has_table(database_name)
                 if result:
-                    db_helper.run_migrations(
-                        alembic_location, archived_database_path)
+                    db_helper.run_migrations(alembic_location, archived_database_path)
                     db_helper.run_migrations(alembic_location, database_path)
-                    Session3, engine2 = db_helper.create_database_session(
-                        database_path)
+                    Session3, engine2 = db_helper.create_mysql_database_session()
                     db_collection = db_helper.database_collection()
                     database_session2: Session = Session3()
                     database = db_collection.database_picker("user_data")
@@ -442,16 +442,14 @@ def export_sqlite2(archive_path, datas, parent_type, legacy_fixer=False):
     database = db_collection.database_picker(database_name)
     if not database:
         return
-    alembic_location = os.path.join(
-        cwd, "database", "databases", database_name)
+    alembic_location = os.path.join(cwd, "database", "databases", database_name)
     database_exists = os.path.exists(database_path)
     if database_exists:
         if os.path.getsize(database_path) == 0:
             os.remove(database_path)
             database_exists = False
     if not legacy_fixer:
-        legacy_database_fixer(database_path, database,
-                              database_name, database_exists)
+        legacy_database_fixer(database_path, database, database_name, database_exists)
     db_helper.run_migrations(alembic_location, database_path)
     print
     Session, engine = db_helper.create_database_session(database_path)
@@ -533,8 +531,7 @@ def legacy_sqlite_updater(
         )
         db_helper.run_migrations(alembic_location, legacy_metadata_path)
         database_name = "user_data"
-        session, engine = db_helper.create_database_session(
-            legacy_metadata_path)
+        session, engine = db_helper.create_mysql_database_session()
         database_session: Session = session()
         db_collection = db_helper.database_collection()
         database = db_collection.database_picker(database_name)
@@ -565,23 +562,28 @@ def legacy_sqlite_updater(
     return final_result, delete_metadatas
 
 
-def export_sqlite(database_path: str, api_type, datas):
-    metadata_directory = os.path.dirname(database_path)
-    os.makedirs(metadata_directory, exist_ok=True)
-    database_name = os.path.basename(database_path).replace(".db", "")
-    cwd = os.getcwd()
-    alembic_location = os.path.join(
-        cwd, "database", "databases", database_name.lower())
-    db_helper.run_migrations(alembic_location, database_path)
-    Session, engine = db_helper.create_database_session(database_path)
+def export_sqlite(database_path: str, api_type, datas, userId):
+    # metadata_directory = os.path.dirname(database_path)
+    # os.makedirs(metadata_directory, exist_ok=True)
+    # database_name = os.path.basename(database_path).replace(".db", "")
+    # cwd = os.getcwd()
+    # alembic_location = os.path.join(
+    #     cwd, "database", "databases", database_name.lower())
+    # db_helper.run_migrations(alembic_location, database_path)
+    Session, engine = db_helper.create_mysql_database_session()
     db_collection = db_helper.database_collection()
-    database = db_collection.database_picker(database_name)
+    database = db_collection.database_picker("user_data")
     if not database:
         return
     database_session = Session()
     api_table = database.table_picker(api_type)
     if not api_table:
         return
+
+    posts = [value[0] for value in database_session.query(api_table).with_entities(
+        api_table.post_id, api_table.user_id).filter(api_table.user_id == userId)]
+    medias = [value[0] for value in database_session.query(database.media_table).with_entities(
+        database.media_table.media_id, database.media_table.user_id).filter(database.media_table.user_id == userId and database.media_table.media_type=='Videos')]
     for post in datas:
         post_id = post["post_id"]
         postedAt = post["postedAt"]
@@ -591,67 +593,82 @@ def export_sqlite(database_path: str, api_type, datas):
                 date_object = datetime.strptime(postedAt, "%d-%m-%Y %H:%M:%S")
             else:
                 date_object = postedAt
-        result = database_session.query(api_table)
-        try:
-            post_db = result.filter_by(post_id=post_id).first()
+        if post_id not in posts:
+            post_db = api_table()
+        else:
+            result = database_session.query(api_table)
+            post_db=result.filter_by(post_id=post_id).first()
             if not post_db:
                 post_db = api_table()
-            if api_type == "Messages":
-                post_db.user_id = post["user_id"]
-            post_db.post_id = post_id
-            post_db.text = post["text"]
-            if post["price"] is None:
-                post["price"] = 0
-            post_db.price = post["price"]
-            post_db.paid = post["paid"]
-            post_db.archived = post["archived"]
-            if date_object:
-                post_db.created_at = date_object
-            database_session.add(post_db)
-            for media in post["medias"]:
-                if media["media_type"] == "Texts":
-                    continue
-                created_at = media["created_at"]
-                if not isinstance(created_at, datetime):
-                    date_object = datetime.strptime(
-                        created_at, "%d-%m-%Y %H:%M:%S")
-                else:
-                    date_object = postedAt
-                media_id = media.get("media_id", None)
-                result = database_session.query(database.media_table)
-                media_db = result.filter_by(media_id=media_id).first()
+
+        # if api_type == "Messages":
+        post_db.user_id = post.get("user_id", None)
+        post_db.post_id = post_id
+        post_db.text = post["text"]
+        if post["price"] is None:
+            post["price"] = 0
+        post_db.price = post["price"]
+        post_db.paid = post["paid"]
+        post_db.archived = post["archived"]
+        if date_object:
+            post_db.created_at = date_object
+        database_session.add(post_db)
+        
+        db_helper.FlushDatabase(database_session,0)
+
+        for media in post["medias"]:
+            if media["media_type"] != "Videos" and media["media_type"] != "Images":
+                continue
+            created_at = media.get("created_at", postedAt)
+            if not isinstance(created_at, datetime):
+                date_object = datetime.strptime(created_at, "%d-%m-%Y %H:%M:%S")
+            else:
+                date_object = postedAt
+            media_id = media.get("media_id", None)
+            if media_id not in medias:
+                media_db = database.media_table()
+            else:
+                media_db = database_session.query(database.media_table).filter_by(media_id=media_id).first()
                 if not media_db:
-                    media_db = result.filter_by(
-                        filename=media["filename"], created_at=date_object
-                    ).first()
-                    if not media_db:
-                        media_db = database.media_table()
-                media_db.media_id = media_id
-                media_db.post_id = post_id
-                if "_sa_instance_state" in post:
-                    media_db.size = media["size"]
-                    media_db.downloaded = media["downloaded"]
-                media_db.link = media["links"][0]
-                media_db.preview = media.get("preview", False)
-                media_db.directory = media["directory"]
-                media_db.filename = media["filename"]
-                media_db.api_type = api_type
-                media_db.media_type = media["media_type"]
-                media_db.linked = media.get("linked", None)
-                media_db.duration = media.get("duration", 0)
-                media_db.thumbnail = media.get("thumbnail", None)
-                if date_object:
-                    media_db.created_at = date_object
-                database_session.add(media_db)
-                print
+                    media_db = database.media_table()
+            # result = database_session.query(database.media_table)
+            # media_db = result.filter_by(media_id=media_id).first()
+            # if not media_db:
+            #     media_db = result.filter_by(
+            #         filename=media["filename"], created_at=date_object
+            #     ).first()
+            #     if not media_db:
+            #         media_db = database.media_table()
+            media_db.media_id = media_id
+            media_db.post_id = post_id
+            media_db.user_id=userId
+            if "_sa_instance_state" in post:
+                media_db.size = media["size"]
+                media_db.downloaded = media["downloaded"]
+            media_db.link = media["links"][0]
+            media_db.preview = media.get("preview", False)
+            media_db.directory = media["directory"]
+            media_db.filename = media["filename"]
+            media_db.api_type = api_type
+            media_db.media_type = media["media_type"]
+            media_db.linked = media.get("linked", None)
+            media_db.duration = media.get("duration", 0)
+            media_db.thumbnail = media.get("thumbnail", None)
+            media_db.width = media.get("width", None)
+            media_db.height = media.get("height", None)
+            if date_object:
+                media_db.created_at = date_object
+            database_session.add(media_db)
+            db_helper.FlushDatabase(database_session,0)
+
             print
-        except Exception as inst:
-            print("Unexpected error with database", inst, database_path)
+        print
     print
-    try:
-        database_session.commit()
-    except Exception as inst:
-        print("Unexpected error committing", inst, database_path)
+
+    # try:
+    #     database_session.commit()
+    # except Exception as inst:
+    #     print("Unexpected error committing", inst, database_path)
 
     try:
         database_session.close()
@@ -712,8 +729,7 @@ async def reformat(prepared_format: prepare_reformat, unformatted):
     path = path.replace("{date}", date)
     directory_count = len(directory)
     path_count = len(path)
-    maximum_length = maximum_length - \
-        (directory_count + path_count - extra_count)
+    maximum_length = maximum_length - (directory_count + path_count - extra_count)
     text_length = text_length if text_length < maximum_length else maximum_length
     if has_text:
         # https://stackoverflow.com/a/43848928
@@ -800,19 +816,19 @@ def find_model_directory(username, directories) -> Tuple[str, bool]:
 
 
 def are_long_paths_enabled():
-    if os_name == "Windows":
-        from ctypes import WinDLL, c_ubyte
+    if os_name != "Windows":
+        return True
 
-        ntdll = WinDLL("ntdll")
+    from ctypes import WinDLL, c_ubyte
 
-        if hasattr(ntdll, "RtlAreLongPathsEnabled"):
+    ntdll = WinDLL("ntdll")
 
-            ntdll.RtlAreLongPathsEnabled.restype = c_ubyte
-            ntdll.RtlAreLongPathsEnabled.argtypes = ()
-            return bool(ntdll.RtlAreLongPathsEnabled())
+    if not hasattr(ntdll, "RtlAreLongPathsEnabled"):
+        return False
 
-        else:
-            return False
+    ntdll.RtlAreLongPathsEnabled.restype = c_ubyte
+    ntdll.RtlAreLongPathsEnabled.argtypes = ()
+    return bool(ntdll.RtlAreLongPathsEnabled())
 
 
 def check_for_dupe_file(download_path, content_length):
@@ -826,7 +842,13 @@ def check_for_dupe_file(download_path, content_length):
 
 
 class download_session(tqdm):
-    def start(self, unit="B", unit_scale=True, miniters=1, tsize=0):
+    def start(
+        self,
+        unit: str = "B",
+        unit_scale: bool = True,
+        miniters: int = 1,
+        tsize: int = 0,
+    ):
         self.unit = unit
         self.unit_scale = unit_scale
         self.miniters = miniters
@@ -836,18 +858,29 @@ class download_session(tqdm):
             tsize = int(tsize)
             self.total += tsize
 
-    def update_total_size(self, tsize):
+    def update_total_size(self, tsize: Optional[int]):
         if tsize:
             tsize = int(tsize)
             self.total += tsize
 
-    def update_to(self, b=1, bsize=1, tsize=None):
-        self.update(b)
 
-
+def prompt_modified(message, path):
+    editor = shutil.which(
+        os.environ.get("EDITOR", "notepad" if os_name == "Windows" else "nano")
+    )
+    if editor:
+        print(message)
+        subprocess.run([editor, path], check=True)
+    else:
+        input(message)
+        
 def process_settings(json_settings, args):
     if(len(args.like_content) > 1):
         json_settings['like_content'] = args.like_content.lower() == 'true'
+
+    if(len(os.environ.get('download_content', '')) > 0):
+        json_settings['helpers']['downloader'] = bool(
+            os.environ.get('download_content', 'false'))
 
     return json_settings
 
@@ -875,25 +908,23 @@ def process_supported(json_settings, args):
 def get_config(config_path):
     if os.path.exists(config_path):
         json_config = ujson.load(open(config_path))
-
     else:
         json_config = {}
     json_config2 = copy.deepcopy(json_config)
     json_config = make_settings.fix(json_config)
     file_name = os.path.basename(config_path)
     json_config = ujson.loads(
-        json.dumps(make_settings.config(**json_config),
-                   default=lambda o: o.__dict__)
+        json.dumps(make_settings.config(**json_config), default=lambda o: o.__dict__)
     )
-
     updated = False
     if json_config != json_config2:
         updated = True
         filepath = os.path.join(".settings", "config.json")
         export_data(json_config, filepath)
     if not json_config:
-        input(
-            f"The .settings\\{file_name} file has been created. Fill in whatever you need to fill in and then press enter when done.\n"
+        prompt_modified(
+            f"The .settings\\{file_name} file has been created. Fill in whatever you need to fill in and then press enter when done.\n",
+            config_path,
         )
         json_config = ujson.load(open(config_path))
     return json_config, updated
@@ -903,7 +934,7 @@ def choose_auth(array):
     names = []
     array = [{"auth_count": -1, "username": "All"}] + array
     string = ""
-    seperator = " | "
+    separator = " | "
     name_count = len(array)
     if name_count > 1:
 
@@ -913,7 +944,7 @@ def choose_auth(array):
             string += str(count) + " = " + name
             names.append(x)
             if count + 1 != name_count:
-                string += seperator
+                string += separator
 
             count += 1
 
@@ -931,9 +962,9 @@ def choose_option(
 ):
     names = subscription_list[0]
     default_message = ""
-    seperator = " | "
+    separator = " | "
     if use_default_message:
-        default_message = f"Names: Username = username {seperator}"
+        default_message = f"Names: Username = username {separator}"
     new_names = []
     if names:
         if isinstance(auto_scrape, bool):
@@ -965,8 +996,13 @@ def choose_option(
     return new_names
 
 
-def process_profiles(json_settings, proxies, site_name, api: Union[OnlyFans.start]):
-    profile_directories = json_settings["profile_directories"]
+def process_profiles(
+    json_settings: dict[str, Any],
+    proxies: list[str],
+    site_name: str,
+    api: OnlyFans.start | Fansly.start | StarsAVN.start,
+):
+    profile_directories: list[str] = json_settings["profile_directories"]
     for profile_directory in profile_directories:
         x = os.path.join(profile_directory, site_name)
         x = os.path.abspath(x)
@@ -1057,25 +1093,48 @@ def is_me(user_api):
         return False
 
 
+def open_partial(path: str) -> BinaryIO:
+    prefix, extension = os.path.splitext(path)
+    while True:
+        partial_path = "{}-{}{}.part".format(prefix, secrets.token_hex(6), extension)
+        try:
+            return open(partial_path, "xb")
+        except FileExistsError:
+            os.unlink(partial_path)
+            pass
+
+
 async def write_data(response: ClientResponse, download_path: str, progress_bar):
     status_code = 0
     if response.status == 200:
         total_length = 0
         os.makedirs(os.path.dirname(download_path), exist_ok=True)
-        with open(download_path, "wb") as f:
-            try:
-                async for data in response.content.iter_chunked(4096):
-                    length = len(data)
-                    total_length += length
-                    progress_bar.update(length)
-                    f.write(data)
-            except (
-                ClientPayloadError,
-                ContentTypeError,
-                ClientOSError,
-                ServerDisconnectedError,
-            ) as e:
-                status_code = 1
+        partial_path: Optional[str] = None
+        try:
+            with open_partial(download_path) as f:
+                partial_path = f.name
+                try:
+                    async for data in response.content.iter_chunked(4096):
+                        length = len(data)
+                        total_length += length
+                        progress_bar.update(length)
+                        f.write(data)
+                except (
+                    ClientPayloadError,
+                    ContentTypeError,
+                    ClientOSError,
+                    ServerDisconnectedError,
+                ) as e:
+                    status_code = 1
+        except Exception:
+            if partial_path:
+                os.unlink(partial_path)
+            raise
+        else:
+            if status_code:
+                os.unlink(partial_path)
+            else:
+                os.replace(partial_path, download_path)
     else:
         if response.content_length:
             progress_bar.update_total_size(-response.content_length)
@@ -1138,7 +1197,7 @@ def metadata_fixer(directory):
 
 
 def ordinal(n):
-    return "%d%s" % (n, "tsnrhtdd"[(n / 10 % 10 != 1) * (n % 10 < 4) * n % 10:: 4])
+    return "%d%s" % (n, "tsnrhtdd"[(n / 10 % 10 != 1) * (n % 10 < 4) * n % 10 :: 4])
 
 
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
@@ -1173,8 +1232,7 @@ async def send_webhook(
             embed.title = f"Auth {category2.capitalize()}"
             embed.add_field("username", username)
             message.embeds.append(embed)
-            message = ujson.loads(json.dumps(
-                message, default=lambda o: o.__dict__))
+            message = ujson.loads(json.dumps(message, default=lambda o: o.__dict__))
             requests.post(webhook_link, json=message)
     if category == "download_webhook":
         subscriptions: list[create_user] = await item.get_subscriptions(refresh=False)
@@ -1234,11 +1292,11 @@ def multiprocessing():
 
 
 def module_chooser(domain, json_sites):
-    string = "Site: "
-    seperator = " | "
+    string = "Select Site: "
+    separator = " | "
     site_names = []
-    wl = ["onlyfans"]
-    bl = ["patreon"]
+    wl = ["onlyfans", "fansly", "starsavn"]
+    bl = []
     site_count = len(json_sites)
     count = 0
     for x in json_sites:
@@ -1250,7 +1308,7 @@ def module_chooser(domain, json_sites):
         string += str(count) + " = " + x
         site_names.append(x)
         if count + 1 != site_count:
-            string += seperator
+            string += separator
 
         count += 1
     if domain and domain not in site_names:
@@ -1271,8 +1329,7 @@ async def move_to_old(
         os.path.join(x, folder_directory) for x in base_download_directories
     ]
     local_destination = check_space(local_destinations, min_size=100)
-    local_destination = os.path.join(
-        local_destination, first_letter, model_username)
+    local_destination = os.path.join(local_destination, first_letter, model_username)
     print(f"Moving {source} -> {local_destination}")
     shutil.copytree(source, local_destination, dirs_exist_ok=True)
     shutil.rmtree(source)

@@ -12,7 +12,7 @@ from multiprocessing.dummy import Pool as ThreadPool
 from multiprocessing.pool import Pool
 from os.path import dirname as up
 from random import randint
-from typing import Any, Optional
+from typing import Any, Optional, Union
 from urllib.parse import urlparse
 
 import python_socks
@@ -29,8 +29,12 @@ from aiohttp.client_reqrep import ClientResponse
 from aiohttp_socks import ProxyConnectionError, ProxyConnector, ProxyError
 from database.databases.user_data.models.media_table import template_media_table
 
-from apis.onlyfans.classes import create_auth, create_user
-from apis.onlyfans.classes.extras import error_details
+import apis.onlyfans.classes as onlyfans_classes
+onlyfans_extras = onlyfans_classes.extras
+import apis.fansly.classes as fansly_classes
+fansly_extras = fansly_classes.extras
+import apis.starsavn.classes as starsavn_classes
+starsavn_extras = starsavn_classes.extras
 
 path = up(up(os.path.realpath(__file__)))
 os.chdir(path)
@@ -51,20 +55,10 @@ class set_settings:
         global_settings = self.json_global_settings
 
 
-async def remove_errors(results: list):
-    wrapped = False
-    if not isinstance(results, list):
-        wrapped = True
-        results = [results]
-    results = [x for x in results if not isinstance(
-        x, error_details) and not getattr(x, "isReportedByMe", False)]
-    if wrapped and results:
-        results = results[0]
-    return results
 
 
 def chunks(l, n):
-    final = [l[i * n: (i + 1) * n] for i in range((len(l) + n - 1) // n)]
+    final = [l[i * n : (i + 1) * n] for i in range((len(l) + n - 1) // n)]
     return final
 
 
@@ -86,10 +80,11 @@ def multiprocessing(max_threads: Optional[int] = None):
 class session_manager:
     def __init__(
         self,
-        auth: create_auth,
+        auth: Union[onlyfans_classes.create_auth, fansly_classes.create_auth],
         headers: dict[str, Any] = {},
         proxies: list[str] = [],
         max_threads: int = -1,
+        use_cookies: bool = True,
     ) -> None:
         self.pool: Pool = auth.pool if auth.pool else multiprocessing()
         self.max_threads = max_threads
@@ -100,12 +95,15 @@ class session_manager:
         dynamic_rules = requests.get(dr_link).json()  # type: ignore
         self.dynamic_rules = dynamic_rules
         self.auth = auth
+        self.use_cookies: bool = use_cookies
 
     def create_client_session(self):
         proxy = self.get_proxy()
         connector = ProxyConnector.from_url(proxy) if proxy else None
 
-        final_cookies = self.auth.auth_details.cookie.format()
+        final_cookies = (
+            self.auth.auth_details.cookie.format() if self.use_cookies else {}
+        )
         client_session = ClientSession(
             connector=connector, cookies=final_cookies, read_timeout=None
         )
@@ -184,14 +182,19 @@ class session_manager:
             return None
         while True:
             try:
-                response = await request_method(link, headers=headers, data=temp_payload)
+                response = await request_method(
+                    link, headers=headers, data=temp_payload
+                )
                 if method == "HEAD":
                     result = response
                 else:
                     if json_format and not stream:
                         result = await response.json()
                         if "error" in result:
-                            result = error_details(result)
+                            if isinstance(self.auth, onlyfans_classes.create_auth):
+                                result = onlyfans_extras.error_details(result)
+                            elif isinstance(self.auth, fansly_classes.create_auth):
+                                result = fansly_extras.error_details(result)
                     elif stream and not json_format:
                         result = response
                     else:
@@ -212,22 +215,25 @@ class session_manager:
             await session.close()
         return result
 
-    async def async_requests(self, items: list[str]) -> list:
+    async def async_requests(self, items: list[str]) -> list[dict[str,Any]]:
         tasks = []
 
-        async def run(links) -> list:
+        async def run(links: list[str]) -> list:
             proxies = self.proxies
-            proxy = self.proxies[randint(
-                0, len(proxies) - 1)] if proxies else ""
+            proxy = self.proxies[randint(0, len(proxies) - 1)] if proxies else ""
             connector = ProxyConnector.from_url(proxy) if proxy else None
+            temp_cookies: dict[Any, Any] = (
+                self.auth.auth_details.cookie.format()
+                if hasattr(self.auth.auth_details, "cookie")
+                else {}
+            )
             async with ClientSession(
                 connector=connector,
-                cookies=self.auth.auth_details.cookie.format(),
+                cookies=temp_cookies,
                 read_timeout=None,
             ) as session:
                 for link in links:
-                    task = asyncio.ensure_future(
-                        self.json_request(link, session))
+                    task = asyncio.ensure_future(self.json_request(link, session))
                     tasks.append(task)
                 responses = list(await asyncio.gather(*tasks))
                 return responses
@@ -239,7 +245,7 @@ class session_manager:
         self,
         download_item: template_media_table,
         session: ClientSession,
-        subscription: create_user
+        subscription: onlyfans_classes.create_user
     ):
         post = await subscription.get_post(download_item.post_id)
         if post:
@@ -266,16 +272,14 @@ class session_manager:
         download_item: template_media_table,
         session: ClientSession,
         progress_bar,
-        subscription: create_user,
+        subscription: onlyfans_classes.create_user,
     ):
         attempt_count = 1
         new_task = {}
-        # new_task["thumb_response"] = None
         while attempt_count <= 3:
             attempt_count += 1
             if not download_item.link:
                 continue
-
             response: ClientResponse
             response = await asyncio.ensure_future(
                 self.json_request(
@@ -310,7 +314,7 @@ class session_manager:
                     )
                 elif api_type == "posts":
                     new_result = await subscription.get_post(post_id)
-                if isinstance(new_result, error_details):
+                if isinstance(new_result, onlyfans_extras.error_details):
                     continue
                 if new_result and new_result.media:
                     media_list = [
@@ -338,6 +342,10 @@ class session_manager:
             a = [link, 0, dynamic_rules]
             headers2 = self.create_signed_headers(*a)
             headers |= headers2
+        elif "https://apiv2.fansly.com" in link and isinstance(
+            self.auth.auth_details, fansly_extras.auth_details
+        ):
+            headers["authorization"] = self.auth.auth_details.authorization
         return headers
 
     def create_signed_headers(self, link: str, auth_id: int, dynamic_rules: dict):
@@ -353,13 +361,11 @@ class session_manager:
         sha_1_sign = hash_object.hexdigest()
         sha_1_b = sha_1_sign.encode("ascii")
         checksum = (
-            sum([sha_1_b[number]
-                for number in dynamic_rules["checksum_indexes"]])
+            sum([sha_1_b[number] for number in dynamic_rules["checksum_indexes"]])
             + dynamic_rules["checksum_constant"]
         )
         headers = {}
-        headers["sign"] = dynamic_rules["format"].format(
-            sha_1_sign, abs(checksum))
+        headers["sign"] = dynamic_rules["format"].format(sha_1_sign, abs(checksum))
         headers["time"] = final_time
         return headers
 
@@ -376,15 +382,15 @@ async def test_proxies(proxies: list[str]):
                 ip = ip.strip()
                 print("Session IP: " + ip + "\n")
                 final_proxies.append(proxy)
-            except python_socks._errors.ProxyConnectionError as e:
+            except python_socks._errors.ProxyConnectionError|python_socks._errors.ProxyError as e:
                 print(f"Proxy Not Set: {proxy}\n")
                 continue
     return final_proxies
 
 
-def restore_missing_data(master_set2, media_set, split_by):
+def restore_missing_data(master_set2:list[str], media_set, split_by):
     count = 0
-    new_set = []
+    new_set:set[str] = set()
     for item in media_set:
         if not item:
             link = master_set2[count]
@@ -393,21 +399,19 @@ def restore_missing_data(master_set2, media_set, split_by):
             if limit == split_by + 1:
                 break
             offset2 = offset
-            limit2 = int(limit / split_by)
+            limit2 = int(limit / split_by) if limit > 1 else 1
             for item in range(1, split_by + 1):
-                link2 = link.replace("limit=" + str(limit),
-                                     "limit=" + str(limit2))
-                link2 = link2.replace(
-                    "offset=" + str(offset), "offset=" + str(offset2))
+                link2 = link.replace("limit=" + str(limit), "limit=" + str(limit2))
+                link2 = link2.replace("offset=" + str(offset), "offset=" + str(offset2))
                 offset2 += limit2
-                new_set.append(link2)
+                new_set.add(link2)
         count += 1
     new_set = new_set if new_set else master_set2
-    return new_set
+    return list(new_set)
 
 
-async def scrape_endpoint_links(links, session_manager: session_manager, api_type):
-    media_set = []
+async def scrape_endpoint_links(links:list[str], session_manager: Union[session_manager,None], api_type:str):
+    media_set:list[dict[str,str]] = []
     max_attempts = 100
     api_type = api_type.capitalize()
     for attempt in list(range(max_attempts)):
@@ -415,7 +419,11 @@ async def scrape_endpoint_links(links, session_manager: session_manager, api_typ
             continue
         print("Scrape Attempt: " + str(attempt + 1) + "/" + str(max_attempts))
         results = await session_manager.async_requests(links)
-        results = await remove_errors(results)
+        match type(session_manager.auth):
+            case starsavn_classes.create_auth:
+                results = await starsavn_extras.remove_errors(results)
+            case _:
+                results = await onlyfans_extras.remove_errors(results)
         not_faulty = [x for x in results if x]
         faulty = [
             {"key": k, "value": v, "link": links[k]}
@@ -440,8 +448,8 @@ async def scrape_endpoint_links(links, session_manager: session_manager, api_typ
         else:
             media_set.extend(not_faulty)
             break
-    media_set = list(chain(*media_set))
-    return media_set
+    final_media_set = list(chain(*media_set))
+    return final_media_set
 
 
 def calculate_the_unpredictable(link, limit, multiplier=1):
@@ -456,3 +464,8 @@ def calculate_the_unpredictable(link, limit, multiplier=1):
         new_link = link.replace(offset, f"offset={new_offset_num}")
         final_links.append(new_link)
     return final_links
+
+def parse_config_inputs(custom_input:Any) -> list[str]:
+    if isinstance(custom_input,str):
+        custom_input = custom_input.split(",")
+    return custom_input
