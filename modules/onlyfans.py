@@ -1359,10 +1359,52 @@ async def prepare_downloads(subscription: create_user):
     print
 
 async def log_subscriptions(
-    authed: create_auth
+    authed: create_auth,identifiers: list = []
 ):
     print("Logging Users")
-    results = await authed.get_subscriptions(identifiers=None,refresh= True)
+    results = await authed.get_subscriptions(identifiers=identifiers,refresh= True)
+
+    lists = await authed.get_lists()
+
+    if blacklists:
+        remote_blacklists = lists
+        if remote_blacklists:
+            for remote_blacklist in remote_blacklists:
+                for blacklist in blacklists:
+                    if remote_blacklist["name"] == blacklist:
+                        list_users = remote_blacklist["users"]
+                        if remote_blacklist["usersCount"] > 2:
+                            list_id = remote_blacklist["id"]
+                            list_users = await authed.get_lists_users(list_id)
+                        if list_users:
+                            users = list_users
+                            bl_ids = [x["username"] for x in users]
+                            results2 = results.copy()
+                            for result in results2:
+                                identifier = result.username
+                                if identifier in bl_ids:
+                                    print(f"Blacklisted: {identifier}")
+                                    results.remove(result)
+    results.sort(key=lambda x: x.subscribedByData["expiredAt"])
+    results.sort(key=lambda x: x.is_me(), reverse=True)
+    results2 = []
+    hard_blacklist = ["onlyfanscreators"]
+    for result in results:
+        # result.auth_count = auth_count
+        username = result.username
+        bl = [x for x in hard_blacklist if x == username]
+        if bl:
+            continue
+        subscribePrice = result.subscribePrice
+        if ignore_type in ["paid"]:
+            if subscribePrice > 0:
+                continue
+        if ignore_type in ["free"]:
+            if subscribePrice == 0:
+                continue
+        results2.append(result)
+    results = results2
+
     queue = asyncio.Queue()
     # if os.path.exists(os.path.join(metadata_directory, 'Subscriptions.csv')):
     #     os.remove(os.path.join(metadata_directory, "Subscriptions.csv"))
@@ -1392,8 +1434,8 @@ async def log_subscriptions(
     # tasks.append(task)
     #Test Setup End
 
-    lists = await authed.get_lists()
-    for lst in [f for f in lists if f.get('type')=='custom' or f.get('type')=='bookmarks' or f.get('type')=='following']:
+    
+    for lst in [f for f in lists if ((whitelists=='' and (f.get('type')=='custom' or f.get('type')=='bookmarks' or f.get('type')=='following')) or f.get('name') in whitelists) and f.get('name') not in blacklists]:
         # await LogList(authed, results, database_session, user_table, lst)
         for user in await authed.get_lists_users(lst.get('id')):
             if(user.get('id') in [r.id for r in results]):
@@ -1516,7 +1558,7 @@ async def LogList(authed, results, database_session, user_table, lst):
 async def manage_subscriptions(
     authed: create_auth, auth_count=0, identifiers: list = [], refresh: bool = True
 ):
-    await log_subscriptions(authed)
+    await log_subscriptions(authed,identifiers=identifiers)
     print("Loading Subscriptions")
     results = await authed.get_subscriptions(identifiers=identifiers, refresh=refresh)
     

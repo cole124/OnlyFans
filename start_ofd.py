@@ -129,7 +129,7 @@ try:
                 # if(len(dbFiles) == 0):
                 #     process_root(json_sites['onlyfans']
                 #                  ['settings']['metadata_directories'][0])
-                #MergeData()
+                MergeData()
                 # CombineFiles()
 
                 if exit_on_completion:
