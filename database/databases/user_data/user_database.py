@@ -9,6 +9,7 @@ from database.databases.user_data.models.api_table import api_table
 from database.databases.user_data.models.media_table import \
     template_media_table
 from database.databases.user_data.models.user_table import user_table
+from database.databases.user_data.models.user_subcription_table import user_subscription_table
 from sqlalchemy.orm.decl_api import declarative_base
 from sqlalchemy.sql.schema import Column, ForeignKey, Table
 from sqlalchemy.sql.sqltypes import Integer
@@ -40,6 +41,9 @@ class messages_table(api_table, Base):
 class users_table(user_table,Base):
     pass
 
+class user_subscriptions_table(user_subscription_table,Base):
+    pass
+
 class media_table(template_media_table, Base):
     class media_legacy_table(template_media_table().legacy_2(LegacyBase), LegacyBase):
         pass
@@ -54,6 +58,8 @@ def table_picker(table_name, legacy=False):
         table = messages_table if not legacy else messages_table().api_legacy_table
     elif table_name == "Users":
         table = users_table
+    elif table_name == "UserSubs":
+        table = user_subscriptions_table
     else:
         table = None
         input("Can't find table")

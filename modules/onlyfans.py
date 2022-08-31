@@ -12,7 +12,8 @@ from types import SimpleNamespace
 from typing import Any, Optional, Union
 from urllib.parse import urlparse
 import time
-import extras.OFLogin.start_ofl as oflogin
+from database.databases.user_data.models.user_subcription_table import user_subscription_table
+# import extras.OFLogin.start_ofl as oflogin
 import extras.OFRenamer.start_ofr as ofrenamer
 import helpers.db_helper as db_helper
 import helpers.main_helper as main_helper
@@ -119,13 +120,13 @@ async def account_setup(
                 authed, auth_count, identifiers=identifiers
             )
         status = True
-    elif (
-        auth.auth_details.email
-        and auth.auth_details.password
-        and json_settings["browser"]["auth"]
-    ):
-        domain = "https://onlyfans.com"
-        oflogin.login(auth, domain, auth.session_manager.get_proxy())
+    # elif (
+    #     auth.auth_details.email
+    #     and auth.auth_details.password
+    #     and json_settings["browser"]["auth"]
+    # ):
+    #     domain = "https://onlyfans.com"
+    #     oflogin.login(auth, domain, auth.session_manager.get_proxy())
     return status, subscriptions
 
 
@@ -813,12 +814,12 @@ async def prepare_scraper(authed: create_auth, site_name, item):
                 if not tmp["success"]:
                     print(tmp)
 
-        highlights = await subscription.get_highlights()
-        valid_highlights = []
-        for highlight in highlights:
-            highlight = await subscription.get_highlights(hightlight_id=highlight.id)
-            valid_highlights.extend(highlight)
-        master_set.extend(valid_highlights)
+        # highlights = await subscription.get_highlights()
+        # valid_highlights = []
+        # for highlight in highlights:
+        #     highlight = await subscription.get_highlights(hightlight_id=highlight.id)
+        #     valid_highlights.extend(highlight)
+        # master_set.extend(valid_highlights)
         print
     if api_type == "Posts":
         master_set = await subscription.get_posts()
@@ -1418,14 +1419,14 @@ async def log_subscriptions(
         return
     database_session = Session()
     user_table = database.table_picker("Users")
+    user_sub_table=database.table_picker("UserSubs")
     if not user_table:
         return
 
     tasks = []
     for res in results:
         queue.put_nowait(res)
-        task = asyncio.create_task(LogUser(authed, database_session, user_table, queue))
-        tasks.append(task)
+
         # await LogUser(authed, database_session, user_table, res)
 
     #Test Setup Start
@@ -1442,9 +1443,12 @@ async def log_subscriptions(
                 continue
 
             queue.put_nowait(user)
-            task = asyncio.create_task(LogUser(authed, database_session, user_table, queue))
-            tasks.append(task)
+            # task = asyncio.create_task(LogUser(authed, database_session, user_table, queue,user_sub_table))
+            # tasks.append(task)
 
+    for i in range(4):
+        task = asyncio.create_task(LogUser(authed, database_session, user_table, queue,user_sub_table))
+        tasks.append(task)
 
     started_at = time.monotonic()
     await queue.join()
@@ -1454,58 +1458,13 @@ async def log_subscriptions(
     for task in tasks:
         task.cancel()
     # Wait until all worker tasks are cancelled.
-    await asyncio.gather(*tasks, return_exceptions=True)
+    # await asyncio.gather(*tasks, return_exceptions=False)
 
     print('====')
     print(f'workers ran in parallel for {total_slept_for:.2f} seconds')
     
     db_helper.FlushDatabase(database_session,0)
-        
 
-        
-
-    # lists = await authed.get_lists()
-    # for lst in [f for f in lists if f.get('type')=='custom' or f.get('type')=='bookmarks' or f.get('type')=='following']:
-    #     # await LogList(authed, results, database_session, user_table, lst)
-    #     for user in await authed.get_lists_users(lst.get('id')):
-    #     if(user.get('id') in [r.id for r in results]):
-    #         continue
-
-    #     queue.put_nowait(user)
-    #     task = asyncio.create_task(LogUser(authed, database_session, user_table, queue))
-    #     tasks.append(task)
-    #     u = await authed.get_user(user.get('id'))
-    #     subscribed=getattr(u,"subscribedByData",None) is not None
-    #     print(f" -Logging {user.get('username')}, Subscribed: {subscribed}")
-    #     about = getattr(u, 'about', '')
-    #     current_price = user.get('subscribePrice')
-    #     if user.get('promoOffers') != None:
-    #         for p in user.get('promoOffers'):
-    #             if p.get('price') < current_price:
-    #                 current_price = p.get('price')
-    #     if user.get('promotions') != None:
-    #         for p in user.get('promotions'):
-    #             if p.get('price') < current_price:
-    #                 current_price = p.get('price')
-            
-    #     db_result = database_session.query(user_table)
-    #     user_db=db_result.filter_by(userId=user.get('id')).first()
-    #     if not user_db:
-    #         user_db=user_table()
-
-    #     user_db.userId=user.get('id')
-    #     user_db.username=user.get('username')
-    #     user_db.name=user.get('name')
-    #     user_db.subscribed=subscribed
-    #     user_db.subscription_price=user.get('subscribePrice')
-    #     user_db.promo_price=current_price
-    #     user_db.renewal_date=user.get('renewedAt')
-    #     user_db.Lists=getattr(u,'custom_lists',getattr(u,'message',''))
-
-
-    #     database_session.add(user_db)
-
-    # db_helper.FlushDatabase(database_session,0)
     database_session.close()
 
 async def LogList(authed, results, database_session, user_table, lst):
@@ -1717,7 +1676,7 @@ def format_options(
                 count += 1
     return [names, string]
 
-async def LogUser(authed, database_session, user_table, queue):
+async def LogUser(authed, database_session, user_table, queue,user_sub_table):
     while True:
         res = await queue.get()
         if(isinstance(res,create_user)):
@@ -1755,12 +1714,28 @@ async def LogUser(authed, database_session, user_table, queue):
         user_db.userId=uID
         user_db.username=u.username
         user_db.name=u.name
-        user_db.subscribed=subscribed
-        user_db.subscription_price=u.subscribePrice
-        user_db.promo_price=current_price
-        user_db.renewal_date=u.subscribedByData['renewedAt'] if u.subscribedByData is not None else None
-        user_db.Lists=lists
+        # user_db.subscribed=subscribed
+        # user_db.subscription_price=u.subscribePrice
+        # user_db.promo_price=current_price
+        # user_db.renewal_date=u.subscribedByData['renewedAt'] if u.subscribedByData is not None else None
+        # user_db.Lists=lists
 
         database_session.add(user_db)
 
+        db_result2 = database_session.query(user_sub_table)
+        userSub_db=db_result2.filter_by(userId=uID,username=authed.name).first()
+        if not userSub_db:
+            userSub_db=user_sub_table()
+            userSub_db.userId=uID
+            userSub_db.username=authed.name
+
+        
+        userSub_db.name=u.name
+        userSub_db.subscribed=subscribed
+        userSub_db.subscription_price=u.subscribePrice
+        userSub_db.promo_price=current_price
+        userSub_db.renewal_date=u.subscribedByData['renewedAt'] if u.subscribedByData is not None else None
+        userSub_db.Lists=lists
+
+        database_session.add(userSub_db)
         queue.task_done()
