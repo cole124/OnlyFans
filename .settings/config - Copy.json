@@ -1,0 +1,118 @@
+{
+  "info": {
+    "version": 7.2
+  },
+  "settings": {
+    "auto_site_choice": "onlyfans",
+    "export_type": "json",
+    "profile_directories": [
+      ".profiles"
+    ],
+    "max_threads": -1,
+    "min_drive_space": 0,
+    "helpers": {
+      "renamer": true,
+      "reformat_media": true,
+      "downloader": true,
+      "delete_empty_directories": false
+    },
+    "webhooks": {
+      "global_webhooks": [],
+      "global_status": true,
+      "auth_webhook": {
+        "succeeded": {
+          "webhooks": [],
+          "status": null,
+          "hide_sensitive_info": true
+        },
+        "failed": {
+          "webhooks": [],
+          "status": null,
+          "hide_sensitive_info": true
+        }
+      },
+      "download_webhook": {
+        "succeeded": {
+          "webhooks": [],
+          "status": null,
+          "hide_sensitive_info": true
+        }
+      }
+    },
+    "exit_on_completion": false,
+    "infinite_loop": true,
+    "loop_timeout": "0",
+    "dynamic_rules_link": "https://raw.githubusercontent.com/DATAHOARDERS/dynamic-rules/main/onlyfans.json",
+    "proxies": [],
+    "cert": "",
+    "random_string": "9aabd452099f11ec8692fcf8ae60b5b2"
+  },
+  "supported": {
+    "onlyfans": {
+      "settings": {
+        "auto_profile_choice": true,
+        "auto_model_choice": ["ginnypotter","modernmrsmaisel","fitbryceadams","petitepixxxie","saraunderwood","cloconut","sarahandtara","sarahwxpfree","ms_krista"],
+        "auto_media_choice": ["Images", "Videos"],
+        "auto_api_choice": true,
+        "browser": {
+          "auth": true
+        },
+        "jobs": {
+          "scrape_names": true,
+          "scrape_paid_content": true
+        },
+        "download_directories": [
+          "E:/"
+        ],
+        "file_directory_format": "{site_name}\\{model_username}\\{media_type}",
+        "filename_format": "{filename}.{ext}",
+        "metadata_directories": [
+          ".sites"
+        ],
+        "metadata_directory_format": "{site_name}\\{model_username}\\Metadata",
+        "delete_legacy_metadata": false,
+        "text_length": 255,
+        "video_quality": "source",
+        "overwrite_files": false,
+        "date_format": "%d-%m-%Y",
+        "ignored_keywords": [],
+        "ignore_type": "",
+        "blacklists": "",
+        "webhook": true
+      }
+    },
+    "starsavn": {
+      "settings": {
+        "auto_profile_choice": "",
+        "auto_model_choice": false,
+        "auto_media_choice": "",
+        "auto_api_choice": true,
+        "browser": {
+          "auth": true
+        },
+        "jobs": {
+          "scrape_names": true,
+          "scrape_paid_content": true
+        },
+        "download_directories": [
+          ".sites"
+        ],
+        "file_directory_format": "{site_name}\\{model_username}\\{api_type}\\{value}\\{media_type}",
+        "filename_format": "{filename}.{ext}",
+        "metadata_directories": [
+          ".sites"
+        ],
+        "metadata_directory_format": "{site_name}\\{model_username}\\Metadata",
+        "delete_legacy_metadata": false,
+        "text_length": 255,
+        "video_quality": "source",
+        "overwrite_files": false,
+        "date_format": "%d-%m-%Y",
+        "ignored_keywords": [],
+        "ignore_type": "",
+        "blacklist_name": "",
+        "webhook": true
+      }
+    }
+  }
+}
