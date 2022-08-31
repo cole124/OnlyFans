@@ -1,0 +1,45 @@
+-------------------------------------------------------------------
+Settings:
+{'auto_site_choice': 'onlyfans', 'export_type': 'json', 'profile_directories': ['.profiles'], 'max_threads': -1, 'min_drive_space': 0, 'like_content': False, 'helpers': {'renamer': False, 'reformat_media': False, 'downloader': False, 'delete_empty_directories': True}, 'webhooks': {'global_webhooks': [], 'global_status': False, 'auth_webhook': {'succeeded': {'webhooks': [], 'status': None, 'hide_sensitive_info': True}, 'failed': {'webhooks': [], 'status': None, 'hide_sensitive_info': True}}, 'download_webhook': {'succeeded': {'webhooks': [], 'status': None, 'hide_sensitive_info': True}}}, 'exit_on_completion': True, 'infinite_loop': False, 'loop_timeout': '600', 'dynamic_rules_link': 'https://raw.githubusercontent.com/DATAHOARDERS/dynamic-rules/main/onlyfans.json', 'proxies': [], 'cert': '', 'random_string': '9aabd452099f11ec8692fcf8ae60b5b2'}
+Sites:
+{'onlyfans': {'settings': {'auto_profile_choice': True, 'auto_model_choice': True, 'auto_media_choice': True, 'auto_api_choice': True, 'browser': {'auth': True}, 'jobs': {'scrape_names': True, 'scrape_paid_content': True}, 'download_directories': ['/tmp'], 'file_directory_format': '{model_username}\\{media_type}', 'filename_format': '{date}_{filename}.{ext}', 'metadata_directories': ['/tmp'], 'metadata_directory_format': '{model_username}', 'delete_legacy_metadata': False, 'text_length': 255, 'video_quality': 'source', 'overwrite_files': True, 'date_format': '%Y%m%d', 'ignored_keywords': ['tell her ', '@', 'trans', 'mention me', 'dick rate', 'her page ', 'films it ', 'follow her '], 'ignore_type': '', 'blacklists': 'Ignored', 'whitelists': '', 'webhook': False}}, 'fansly': {'settings': {'auto_profile_choice': [], 'auto_model_choice': False, 'auto_media_choice': '', 'auto_api_choice': True, 'browser': {'auth': True}, 'jobs': {'scrape_names': True, 'scrape_paid_content': True}, 'download_directories': ['/tmp'], 'file_directory_format': '{site_name}\\{model_username}\\{api_type}\\{value}\\{media_type}', 'filename_format': '{filename}.{ext}', 'metadata_directories': ['/tmp'], 'metadata_directory_format': '{site_name}\\{model_username}\\Metadata', 'delete_legacy_metadata': False, 'text_length': 255, 'video_quality': 'source', 'overwrite_files': False, 'date_format': '%d-%m-%Y', 'ignored_keywords': [], 'ignore_type': '', 'blacklists': [], 'webhook': True}}, 'starsavn': {'settings': {'auto_profile_choice': '', 'auto_model_choice': False, 'auto_media_choice': '', 'auto_api_choice': True, 'browser': {'auth': True}, 'jobs': {'scrape_names': True, 'scrape_paid_content': True}, 'download_directories': ['.sites'], 'file_directory_format': '{site_name}\\{model_username}\\{api_type}\\{value}\\{media_type}', 'filename_format': '{filename}.{ext}', 'metadata_directories': ['.sites'], 'metadata_directory_format': '{site_name}\\{model_username}\\Metadata', 'delete_legacy_metadata': False, 'text_length': 255, 'video_quality': 'source', 'overwrite_files': False, 'date_format': '%d-%m-%Y', 'ignored_keywords': [], 'ignore_type': '', 'blacklists': [''], 'webhook': True}}}
+-------------------------------------------------------------------
+Auth (V1) Attempt 1/10
+Welcome Willet | u72623992
+Logging Users
+Traceback (most recent call last):
+  File "C:\Users\coles\AppData\Local\Programs\Python\Python310\lib\asyncio\runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "C:\Users\coles\AppData\Local\Programs\Python\Python310\lib\asyncio\base_events.py", line 628, in run_until_complete
+    self.run_forever()
+  File "C:\Users\coles\AppData\Local\Programs\Python\Python310\lib\asyncio\base_events.py", line 595, in run_forever
+    self._run_once()
+  File "C:\Users\coles\AppData\Local\Programs\Python\Python310\lib\asyncio\base_events.py", line 1845, in _run_once
+    event_list = self._selector.select(timeout)
+  File "C:\Users\coles\AppData\Local\Programs\Python\Python310\lib\selectors.py", line 324, in select
+    r, w, _ = self._select(self._readers, self._writers, [], timeout)
+  File "C:\Users\coles\AppData\Local\Programs\Python\Python310\lib\selectors.py", line 315, in _select
+    r, w, x = select.select(r, w, w, timeout)
+ValueError: too many file descriptors in select()
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\coles\source\repos\OnlyFans-Cole\start_ofd.py", line 148, in <module>
+    asyncio.run(main())
+  File "C:\Users\coles\AppData\Local\Programs\Python\Python310\lib\asyncio\runners.py", line 47, in run
+    _cancel_all_tasks(loop)
+  File "C:\Users\coles\AppData\Local\Programs\Python\Python310\lib\asyncio\runners.py", line 63, in _cancel_all_tasks
+    loop.run_until_complete(tasks.gather(*to_cancel, return_exceptions=True))
+  File "C:\Users\coles\AppData\Local\Programs\Python\Python310\lib\asyncio\base_events.py", line 628, in run_until_complete
+    self.run_forever()
+  File "C:\Users\coles\AppData\Local\Programs\Python\Python310\lib\asyncio\base_events.py", line 595, in run_forever
+    self._run_once()
+  File "C:\Users\coles\AppData\Local\Programs\Python\Python310\lib\asyncio\base_events.py", line 1845, in _run_once
+    event_list = self._selector.select(timeout)
+  File "C:\Users\coles\AppData\Local\Programs\Python\Python310\lib\selectors.py", line 324, in select
+    r, w, _ = self._select(self._readers, self._writers, [], timeout)
+  File "C:\Users\coles\AppData\Local\Programs\Python\Python310\lib\selectors.py", line 315, in _select
+    r, w, x = select.select(r, w, w, timeout)
+ValueError: too many file descriptors in select()
+

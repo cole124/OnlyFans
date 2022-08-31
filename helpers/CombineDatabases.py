@@ -5,6 +5,7 @@ import sys
 #import os
 from os import scandir, remove, rmdir
 from os.path import exists, isfile, join, isdir, basename
+import time
 import mysql.connector
 from pathlib import Path
 import sqlite3
@@ -151,8 +152,12 @@ def MergeData():
     with mysql.connector.connect(host=os.environ.get('sqladd', '192.168.1.128'), user=os.environ.get('SQL_USER', 'python'), password=os.environ.get('SQL_PASS', 'Jnmjvt20!'), database=os.environ.get('SQL_DATABASE', 'vue_data'), port=os.environ.get('sqlport', 3306)) as nConn:
         nCur = nConn.cursor()
 
-        sql = "INSERT INTO Posts SELECT a.post_id,a.text FROM messages_temp a LEFT JOIN Posts b ON a.post_id=b.post_id WHERE b.post_id IS NULL AND length(a.text)>0 UNION SELECT a.post_id,a.text FROM posts_temp a LEFT JOIN Posts b ON a.post_id=b.post_id WHERE b.post_id IS NULL AND length(a.text)>0 UNION SELECT a.post_id,a.text FROM stories_temp a LEFT JOIN Posts b ON a.post_id=b.post_id WHERE b.post_id IS NULL AND length(a.text)>0;"
-        nCur.execute(sql)
+        sql = """INSERT INTO Posts
+                SELECT DISTINCT *
+                FROM (SELECT a.post_id,a.text FROM messages_temp a WHERE length(a.text)>0 AND not exists (SELECT * FROM Posts b WHERE b.post_id=a.post_id)
+                UNION SELECT a.post_id,a.text FROM posts_temp a WHERE length(a.text)>0 AND not exists (SELECT * FROM Posts b WHERE b.post_id=a.post_id)
+                UNION SELECT a.post_id,a.text FROM stories_temp a WHERE length(a.text)>0 AND not exists (SELECT * FROM Posts b WHERE b.post_id=a.post_id)) x;"""
+        ExecuteSQL(nCur,sql,0)
 
         sql = """INSERT INTO medias(`user_id`, `media_id`, `post_id`,`link`, `filename`, `size`, `api_type`, `media_type`, `preview`, `downloaded`, `created_at`, `duration`, `thumbnail`, width, height,`sThumb_width`,`sThumb_height`,`sThumb_duration`,`paid`,`price`)
             SELECT a.`user_id`,a.`media_id`,a.`post_id`,a.`link`,a.`filename`,a.`size`,a.`api_type`,a.`media_type`,a.`preview`,a.`downloaded`,a.`created_at`,a.`duration`,a.`thumbnail`,a.width,a.height,
@@ -163,6 +168,19 @@ def MergeData():
             LEFT JOIN messages_temp m ON a.post_id=m.post_id
         WHERE NOT EXISTS (SELECT id FROM medias Where `medias`.media_id=a.media_id);"""
 
-        nCur.execute(sql)
+        ExecuteSQL(nCur,sql,0)
 
         nCur.close()
+
+def ExecuteSQL(nCur,sql,cnt):
+    cnt+=1
+    try:
+        nCur.execute(sql)
+    except Exception as inst:
+        if cnt<=9:
+            time.sleep(cnt*10)
+            ExecuteSQL(nCur,sql,cnt)
+        else:
+            print(f"Unexpected error committing. Count: {cnt}", inst)
+
+

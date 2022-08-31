@@ -3,7 +3,6 @@ version: '3.4'
 services:
   onlyfans:
     image: cshackleton/onlyfans
-    restart: never
     build:
       context: .
       dockerfile: ./Dockerfile
