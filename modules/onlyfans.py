@@ -1503,8 +1503,8 @@ async def LogList(authed, results, database_session, user_table, lst):
 async def manage_subscriptions(
     authed: create_auth, auth_count=0, identifiers: list = [], refresh: bool = True
 ):
-    #await log_subscriptions(authed,identifiers=identifiers)
-    await log_subscriptions(authed)
+    await log_subscriptions(authed,identifiers=identifiers)
+    # await log_subscriptions(authed)
 
     print("Loading Subscriptions")
     results = await authed.get_subscriptions(identifiers=identifiers, refresh=refresh)
