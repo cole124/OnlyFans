@@ -1406,6 +1406,7 @@ async def log_subscriptions(
         results2.append(result)
     results = results2
 
+
     queue = asyncio.Queue()
     # if os.path.exists(os.path.join(metadata_directory, 'Subscriptions.csv')):
     #     os.remove(os.path.join(metadata_directory, "Subscriptions.csv"))
@@ -1420,31 +1421,19 @@ async def log_subscriptions(
     database_session = Session()
     user_table = database.table_picker("Users")
     user_sub_table=database.table_picker("UserSubs")
+    
     if not user_table:
         return
 
     tasks = []
     for res in results:
         queue.put_nowait(res)
-
-        # await LogUser(authed, database_session, user_table, res)
-
-    #Test Setup Start
-    # queue.put_nowait(results[0])
-    # task = asyncio.create_task(LogUser(authed, database_session, user_table, queue))
-    # tasks.append(task)
-    #Test Setup End
-
     
     for lst in [f for f in lists if ((whitelists=='' and (f.get('type')=='custom' or f.get('type')=='bookmarks' or f.get('type')=='following')) or f.get('name') in whitelists) and f.get('name') not in blacklists]:
-        # await LogList(authed, results, database_session, user_table, lst)
         for user in await authed.get_lists_users(lst.get('id')):
             if(user.get('id') in [r.id for r in results]):
                 continue
-
             queue.put_nowait(user)
-            # task = asyncio.create_task(LogUser(authed, database_session, user_table, queue,user_sub_table))
-            # tasks.append(task)
 
     for i in range(4):
         task = asyncio.create_task(LogUser(authed, database_session, user_table, queue,user_sub_table))
@@ -1457,14 +1446,11 @@ async def log_subscriptions(
     # Cancel our worker tasks.
     for task in tasks:
         task.cancel()
-    # Wait until all worker tasks are cancelled.
-    # await asyncio.gather(*tasks, return_exceptions=False)
 
     print('====')
     print(f'workers ran in parallel for {total_slept_for:.2f} seconds')
     
     db_helper.FlushDatabase(database_session,0)
-
     database_session.close()
 
 async def LogList(authed, results, database_session, user_table, lst):
@@ -1517,7 +1503,9 @@ async def LogList(authed, results, database_session, user_table, lst):
 async def manage_subscriptions(
     authed: create_auth, auth_count=0, identifiers: list = [], refresh: bool = True
 ):
-    await log_subscriptions(authed,identifiers=identifiers)
+    #await log_subscriptions(authed,identifiers=identifiers)
+    await log_subscriptions(authed)
+
     print("Loading Subscriptions")
     results = await authed.get_subscriptions(identifiers=identifiers, refresh=refresh)
     
@@ -1714,11 +1702,6 @@ async def LogUser(authed, database_session, user_table, queue,user_sub_table):
         user_db.userId=uID
         user_db.username=u.username
         user_db.name=u.name
-        # user_db.subscribed=subscribed
-        # user_db.subscription_price=u.subscribePrice
-        # user_db.promo_price=current_price
-        # user_db.renewal_date=u.subscribedByData['renewedAt'] if u.subscribedByData is not None else None
-        # user_db.Lists=lists
 
         database_session.add(user_db)
 
@@ -1728,7 +1711,6 @@ async def LogUser(authed, database_session, user_table, queue,user_sub_table):
             userSub_db=user_sub_table()
             userSub_db.userId=uID
             userSub_db.username=authed.name
-
         
         userSub_db.name=u.name
         userSub_db.subscribed=subscribed
@@ -1738,4 +1720,5 @@ async def LogUser(authed, database_session, user_table, queue,user_sub_table):
         userSub_db.Lists=lists
 
         database_session.add(userSub_db)
+
         queue.task_done()

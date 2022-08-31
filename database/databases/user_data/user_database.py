@@ -43,7 +43,6 @@ class users_table(user_table,Base):
 
 class user_subscriptions_table(user_subscription_table,Base):
     pass
-
 class media_table(template_media_table, Base):
     class media_legacy_table(template_media_table().legacy_2(LegacyBase), LegacyBase):
         pass
@@ -60,6 +59,7 @@ def table_picker(table_name, legacy=False):
         table = users_table
     elif table_name == "UserSubs":
         table = user_subscriptions_table
+
     else:
         table = None
         input("Can't find table")

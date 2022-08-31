@@ -151,6 +151,7 @@ def CombineFiles():
 def MergeData():
     with mysql.connector.connect(host=os.environ.get('sqladd', '192.168.1.128'), user=os.environ.get('SQL_USER', 'python'), password=os.environ.get('SQL_PASS', 'Jnmjvt20!'), database=os.environ.get('SQL_DATABASE', 'vue_data'), port=os.environ.get('sqlport', 3306)) as nConn:
         nCur = nConn.cursor()
+
         sql = """INSERT INTO Posts
                 SELECT DISTINCT *
                 FROM (SELECT a.post_id,a.text FROM messages_temp a WHERE length(a.text)>0 AND not exists (SELECT * FROM Posts b WHERE b.post_id=a.post_id)
@@ -181,3 +182,5 @@ def ExecuteSQL(nCur,sql,cnt):
             ExecuteSQL(nCur,sql,cnt)
         else:
             print(f"Unexpected error committing. Count: {cnt}", inst)
+
+
