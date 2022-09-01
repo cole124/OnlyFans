@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from typing import Any, Optional, Union
 from urllib.parse import urlparse
 import time
+from apis.api_helper import multiprocessing
 from database.databases.user_data.models.user_subcription_table import user_subscription_table
 # import extras.OFLogin.start_ofl as oflogin
 import extras.OFRenamer.start_ofr as ofrenamer
@@ -1364,9 +1365,10 @@ async def log_subscriptions(
 ):
     print("Logging Users")
     results = await authed.get_subscriptions(identifiers=identifiers,refresh= True)
-    numOfWorkers=os.environ.get('NUM_SUB_WORKERS', 2)
+    expired = await authed.get_expired_subscriptions(identifiers=identifiers,refresh= True)
+    numOfWorkers=int(os.environ.get('NUM_SUB_WORKERS', 2))
     lists = await authed.get_lists()
-
+    results=results+[e for e in expired if e.id not in [r.id for r in results]]
     if blacklists:
         remote_blacklists = lists
         if remote_blacklists:
@@ -1386,6 +1388,7 @@ async def log_subscriptions(
                                 if identifier in bl_ids:
                                     print(f"Blacklisted: {identifier}")
                                     results.remove(result)
+    
     results.sort(key=lambda x: x.subscribedByData["expiredAt"])
     results.sort(key=lambda x: x.is_me(), reverse=True)
     results2 = []
@@ -1406,8 +1409,10 @@ async def log_subscriptions(
         results2.append(result)
     results = results2
 
-
-    queue = asyncio.Queue()
+    queues=[]
+    for q in range(numOfWorkers):
+        queues.append(asyncio.Queue())
+    
     # if os.path.exists(os.path.join(metadata_directory, 'Subscriptions.csv')):
     #     os.remove(os.path.join(metadata_directory, "Subscriptions.csv"))
     #     write_csv_data(os.path.join(metadata_directory, 'Subscriptions.csv'), [
@@ -1426,29 +1431,101 @@ async def log_subscriptions(
         return
 
     tasks = []
-    for res in results:
-        queue.put_nowait(res)
-    
+    qIdx=0
+    # for res in results:
+    #     queues[qIdx].put_nowait(res)
+    #     qIdx+=1
+    #     if(qIdx>numOfWorkers-1):
+    #         qIdx=0
+
+            
     for lst in [f for f in lists if ((whitelists=='' and (f.get('type')=='custom' or f.get('type')=='bookmarks' or f.get('type')=='following')) or f.get('name') in whitelists) and f.get('name') not in blacklists]:
         for user in await authed.get_lists_users(lst.get('id')):
             if(user.get('id') in [r.id for r in results]):
                 continue
-            queue.put_nowait(user)
+            # queues[qIdx].put_nowait(user)
+            # qIdx+=1
+            # if(qIdx>numOfWorkers-1):
+            #     qIdx=0
+            # queue.put_nowait(user)
+            results.append(create_user(user))
 
-    for i in range(numOfWorkers):
-        task = asyncio.create_task(LogUser(authed, database_session, user_table, queue,user_sub_table))
-        tasks.append(task)
-    print(f"Starting {numOfWorkers} workers")
+    # for i in range(numOfWorkers):
+    #     task = asyncio.create_task(LogUser(authed, database_session, user_table, queues[i],user_sub_table))
+    #     tasks.append(task)
+    async def LogUser2(res):
+        if(isinstance(res,create_user)):
+            u = res
+            uID=res.id
+        else:
+            u = await authed.get_user(res.get("id"))
+            uID=res.get("id")
+
+        if(not isinstance(u,create_user)):
+            u=create_user(res)
+
+        subscribed=getattr(u,"subscribedByData",None) is not None
+        lists=u.custom_lists
+        current_price = getattr(u,"subscribePrice",0)
+        if getattr(u,"promoOffers",None) != None:
+            for p in getattr(u,"promoOffers",None):
+                if p.get('price') < current_price:
+                    current_price = p.get('price')
+        if getattr(u,"promotions",None) != None:
+            for p in getattr(u,"promotions",None):
+                if p.get('price') < current_price:
+                    current_price = p.get('price')
+        # else:
+        #     u=create_user(res)
+        #     subscribed=getattr(res,"subscribedByData",None) is not None
+        #     lists=res.custom_lists
+        #     current_price=0
+
+        db_result = database_session.query(user_table)
+        user_db=db_result.filter_by(userId=uID).first()
+        if not user_db:
+            user_db=user_table()
+
+        user_db.userId=uID
+        user_db.username=u.username
+        user_db.name=u.name
+
+        database_session.add(user_db)
+
+        db_result2 = database_session.query(user_sub_table)
+        userSub_db=db_result2.filter_by(userId=uID,username=authed.name).first()
+        if not userSub_db:
+            userSub_db=user_sub_table()
+            userSub_db.userId=uID
+            userSub_db.username=authed.name
+        
+        userSub_db.name=u.name
+        userSub_db.subscribed=subscribed
+        userSub_db.subscription_price=u.subscribePrice
+        userSub_db.promo_price=current_price
+        userSub_db.renewal_date=u.subscribedByData['renewedAt'] if u.subscribedByData is not None else None
+        userSub_db.Lists=lists
+
+        database_session.add(userSub_db)
+
+    print(f"Starting workers")
     started_at = time.monotonic()
-    await queue.join()
+    # await queue.join()
+
+
+    pool=multiprocessing()
+
+    tasks=pool.starmap(LogUser2, product(results))
+    results3=[]
+    results3 += await asyncio.gather(*tasks)
     total_slept_for = time.monotonic() - started_at
 
     # Cancel our worker tasks.
-    for task in tasks:
-        task.cancel()
+    # for task in tasks:
+    #     task.cancel()
 
     print('====')
-    print(f'{numOfWorkers} workers ran in parallel for {total_slept_for:.2f} seconds')
+    print(f'workers ran in parallel for {total_slept_for:.2f} seconds')
     
     db_helper.FlushDatabase(database_session,0)
     database_session.close()

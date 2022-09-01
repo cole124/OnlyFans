@@ -341,7 +341,7 @@ class create_auth(create_user):
         self.subscriptions = results
         return results
 
-    async def get_all_subscriptions(
+    async def get_expired_subscriptions(
         self,
         refresh: bool = True,
         identifiers: list[int | str] = [],
@@ -350,9 +350,9 @@ class create_auth(create_user):
     ) -> list[create_user]:
         if not self.active:
             return []
-        if not refresh:
-            subscriptions = self.subscriptions
-            return subscriptions
+        # if not refresh:
+        #     subscriptions = self.subscriptions
+        #     return subscriptions
         # if self.subscribesCount > 900:
         #     limit = 100
         # ceil = math.ceil(self.subscribesCount / limit)
@@ -360,7 +360,7 @@ class create_auth(create_user):
         offset_array: list[str] = []
         for b in range(75):
             b = b * limit
-            link = endpoint_links(global_limit=limit, global_offset=b).all_subscriptions
+            link = endpoint_links(global_limit=limit, global_offset=b).expired_subscriptions
             offset_array.append(link)
 
         # Following logic is unique to creators only
