@@ -1363,8 +1363,8 @@ async def log_subscriptions(
     authed: create_auth,identifiers: list = []
 ):
     print("Logging Users")
-    results = await authed.get_all_subscriptions(identifiers=identifiers,refresh= True)
-    numOfWorkers=5
+    results = await authed.get_subscriptions(identifiers=identifiers,refresh= True)
+    numOfWorkers=os.environ.get('NUM_SUB_WORKERS', 2)
     lists = await authed.get_lists()
 
     if blacklists:
