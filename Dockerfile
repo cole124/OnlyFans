@@ -17,6 +17,7 @@ ENV sqlport 3306
 ENV SQL_USER "python"
 ENV SQL_PASS "Jnmjvt20!"
 ENV SQL_DATABASE "vue_data"
+ENV NUM_SUB_WORKERS 3
 
 # RUN apt-get update \
 #  && apt-get install unixodbc -y \

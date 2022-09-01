@@ -313,12 +313,12 @@ class create_auth(create_user):
                 return valid_subscriptions
 
             pool = self.pool
-            ceil2 = math.ceil(len(offset_array) / 10)+1
+            ceil2 = math.ceil(len(offset_array) / 5)+1
             a2 = list(range(ceil2))
             
             for b2 in a2:
                 offset=b2*5
-                tasks = pool.starmap(multi, product(offset_array[offset:offset+10]))
+                tasks = pool.starmap(multi, product(offset_array[offset:offset+5]))
                 results += await asyncio.gather(*tasks)
         else:
             for identifier in identifiers:
