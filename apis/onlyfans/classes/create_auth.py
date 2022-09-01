@@ -40,7 +40,7 @@ class create_auth(create_user):
         self.archived_stories = {}
         self.mass_messages = []
         self.paid_content = []
-        temp_pool = pool if pool else api_helper.multiprocessing()
+        temp_pool = pool if pool else api_helper.multiprocessing(4)
         self.pool = temp_pool
         self.session_manager = api_helper.session_manager(self, max_threads=max_threads)
         self.auth_details: auth_details = auth_details()
@@ -313,8 +313,129 @@ class create_auth(create_user):
                 return valid_subscriptions
 
             pool = self.pool
-            tasks = pool.starmap(multi, product(offset_array))
-            results += await asyncio.gather(*tasks)
+            ceil2 = math.ceil(len(offset_array) / 10)+1
+            a2 = list(range(ceil2))
+            
+            for b2 in a2:
+                offset=b2*5
+                tasks = pool.starmap(multi, product(offset_array[offset:offset+10]))
+                results += await asyncio.gather(*tasks)
+        else:
+            for identifier in identifiers:
+                if self.id == identifier or self.username == identifier:
+                    continue
+                link = endpoint_links(identifier=identifier).users
+                result = await self.session_manager.json_request(link)
+                if isinstance(result, error_details) or not result["subscribedBy"]:
+                    continue
+                subscription = create_user(result, self)
+                if subscription.isBlocked:
+                    continue
+                subscription.session_manager = self.session_manager
+                subscription.subscriber = self
+                results.append([subscription])
+                print
+            print
+        results = [x for x in results if x is not None]
+        results = list(chain(*results))
+        self.subscriptions = results
+        return results
+
+    async def get_all_subscriptions(
+        self,
+        refresh: bool = True,
+        identifiers: list[int | str] = [],
+        extra_info: bool = True,
+        limit: int = 20,
+    ) -> list[create_user]:
+        if not self.active:
+            return []
+        if not refresh:
+            subscriptions = self.subscriptions
+            return subscriptions
+        # if self.subscribesCount > 900:
+        #     limit = 100
+        # ceil = math.ceil(self.subscribesCount / limit)
+        # a = list(range(ceil))
+        offset_array: list[str] = []
+        for b in range(75):
+            b = b * limit
+            link = endpoint_links(global_limit=limit, global_offset=b).all_subscriptions
+            offset_array.append(link)
+
+        # Following logic is unique to creators only
+        results = []
+        if self.isPerformer:
+            temp_session_manager = self.session_manager
+            temp_pool = self.pool
+            temp_paid_content = self.paid_content
+            delattr(self, "session_manager")
+            delattr(self, "pool")
+            delattr(self, "paid_content")
+            json_authed = jsonpickle.encode(self, unpicklable=False)
+            json_authed = jsonpickle.decode(json_authed)
+            self.session_manager = temp_session_manager
+            self.pool = temp_pool
+            self.paid_content = temp_paid_content
+            temp_auth = await self.get_user(self.username)
+            if isinstance(json_authed, dict):
+                json_authed = json_authed | temp_auth.__dict__
+
+            subscription = create_user(json_authed, self)
+            subscription.subscriber = self
+            subscription.subscribedByData = {}
+            new_date = datetime.now() + relativedelta(years=1)
+            subscription.subscribedByData["expiredAt"] = new_date.isoformat()
+            subscription = [subscription]
+            results.append(subscription)
+        if not identifiers:
+
+            async def multi(item: str):
+                link = item
+                subscriptions = await self.session_manager.json_request(link)
+                valid_subscriptions: list[create_user] = []
+                extras = {}
+                extras["auth_check"] = ""
+                if isinstance(subscriptions, error_details):
+                    return
+                subscriptions = [
+                    subscription
+                    for subscription in subscriptions
+                    if "error" != subscription
+                ]
+                tasks: list[Task[create_user | error_details]] = []
+                for subscription in subscriptions:
+                    subscription["session_manager"] = self.session_manager
+                    if extra_info:
+                        task = asyncio.create_task(
+                            self.get_user(subscription["username"])
+                        )
+                        tasks.append(task)
+                results2 = await asyncio.gather(*tasks)
+                for result in results2:
+                    if isinstance(result, error_details):
+                        continue
+                    subscription2: create_user = result
+                    for subscription in subscriptions:
+                        if subscription["id"] != subscription2.id:
+                            continue
+                        subscription = subscription | subscription2.__dict__
+                        subscription = create_user(subscription, self)
+                        if subscription.isBlocked:
+                            continue
+                        subscription.session_manager = self.session_manager
+                        subscription.subscriber = self
+                        valid_subscriptions.append(subscription)
+                return valid_subscriptions
+
+            pool = self.pool
+            ceil2 = math.ceil(len(offset_array) / 10)+1
+            a2 = list(range(ceil2))
+            
+            for b2 in a2:
+                offset=b2*5
+                tasks = pool.starmap(multi, product(offset_array[offset:offset+10]))
+                results += await asyncio.gather(*tasks)
         else:
             for identifier in identifiers:
                 if self.id == identifier or self.username == identifier:

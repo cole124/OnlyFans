@@ -1363,8 +1363,8 @@ async def log_subscriptions(
     authed: create_auth,identifiers: list = []
 ):
     print("Logging Users")
-    results = await authed.get_subscriptions(identifiers=identifiers,refresh= True)
-
+    results = await authed.get_all_subscriptions(identifiers=identifiers,refresh= True)
+    numOfWorkers=5
     lists = await authed.get_lists()
 
     if blacklists:
@@ -1435,10 +1435,10 @@ async def log_subscriptions(
                 continue
             queue.put_nowait(user)
 
-    for i in range(4):
+    for i in range(numOfWorkers):
         task = asyncio.create_task(LogUser(authed, database_session, user_table, queue,user_sub_table))
         tasks.append(task)
-
+    print(f"Starting {numOfWorkers} workers")
     started_at = time.monotonic()
     await queue.join()
     total_slept_for = time.monotonic() - started_at
@@ -1448,7 +1448,7 @@ async def log_subscriptions(
         task.cancel()
 
     print('====')
-    print(f'workers ran in parallel for {total_slept_for:.2f} seconds')
+    print(f'{numOfWorkers} workers ran in parallel for {total_slept_for:.2f} seconds')
     
     db_helper.FlushDatabase(database_session,0)
     database_session.close()
