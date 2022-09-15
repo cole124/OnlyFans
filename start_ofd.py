@@ -36,9 +36,9 @@ parser.add_argument('--blacklist', dest='blacklist',
 parser.add_argument('--log_users', type=int, dest='log_users',
                     default=os.environ.get('LogSubscriptions', -1))
 
-parser.add_argument('--scrape_media', dest='scrape_media',default=os.environ.get('SCRAPE_MEDIA', True))
+parser.add_argument('--scrape_media', dest='scrape_media',default=os.environ.get('SCRAPE_MEDIA', "true")=="true")
 
-if(os.environ.get('SCRAPE_MEDIA', True)):
+if(os.environ.get('SCRAPE_MEDIA', "true")=="true"):
     parser.add_argument('--skip_media', dest='scrape_media',action='store_false')
 
 args = parser.parse_args()
