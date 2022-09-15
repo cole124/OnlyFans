@@ -20,6 +20,8 @@ services:
       - SQL_DATABASE=vue_data
       - DL_LIMIT=2000
       - PB_KEY=o.uv6IsOvd9DfpkznAToWArPi4p1mvy4qC
+      - LogSubscriptions=-1
+      - SCRAPE_MEDIA=true
 volumes:
   usb:
     external: true

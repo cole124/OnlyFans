@@ -33,6 +33,14 @@ parser.add_argument('--whitelist', dest='whitelist',
 parser.add_argument('--blacklist', dest='blacklist',
                     default=os.environ.get('blacklist', ''))
 
+parser.add_argument('--log_users', type=int, dest='log_users',
+                    default=os.environ.get('LogSubscriptions', -1))
+
+parser.add_argument('--scrape_media', dest='scrape_media',default=os.environ.get('SCRAPE_MEDIA', True))
+
+if(os.environ.get('SCRAPE_MEDIA', True)):
+    parser.add_argument('--skip_media', dest='scrape_media',action='store_false')
+
 args = parser.parse_args()
 
 
@@ -120,6 +128,7 @@ try:
                     except (ValueError, IndexError):
                         continue
                 site_name_lower = site_name.lower()
+                
                 api = await main_datascraper.start_datascraper(
                     json_config, site_name_lower
                 )

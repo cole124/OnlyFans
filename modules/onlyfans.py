@@ -683,9 +683,9 @@ async def process_metadata(
     delete_metadatas,
 ):
     final_result = []
-    final_result, delete_metadatas = main_helper.legacy_sqlite_updater(
-        legacy_metadata_path, api_type, subscription, delete_metadatas
-    )
+    # final_result, delete_metadatas = main_helper.legacy_sqlite_updater(
+    #     legacy_metadata_path, api_type, subscription, delete_metadatas
+    # )
     new_metadata_object = new_metadata_object + final_result
     result = main_helper.export_sqlite(
         archive_path, api_type, new_metadata_object, subscription.id)
@@ -889,7 +889,7 @@ async def prepare_scraper(authed: create_auth, site_name, item):
         formatted_metadata_directory, api_type + ".db")
     if new_metadata:
         new_metadata = new_metadata["content"]
-        print("Processing metadata.")
+        # print("Processing metadata.")
         # old_metadata, delete_metadatas = process_legacy_metadata(
         #     authed,
         #     new_metadata,
@@ -899,17 +899,18 @@ async def prepare_scraper(authed: create_auth, site_name, item):
         # )
         # new_metadata = new_metadata + old_metadata
         subscription.set_scraped(api_type, new_metadata)
-        await process_metadata(
-            authed,
-            metadata_path,
-            legacy_metadata_path,
-            new_metadata,
-            site_name,
-            api_type,
-            subscription,
-            []
-            # delete_metadatas,
-        )
+        # await process_metadata(
+        #     authed,
+        #     metadata_path,
+        #     legacy_metadata_path,
+        #     new_metadata,
+        #     site_name,
+        #     api_type,
+        #     subscription,
+        #     []
+        #     # delete_metadatas,
+        # )
+        # print("Finished processing metadata.")
     else:
         print("No " + api_type + " Found.")
     return True
@@ -1364,12 +1365,23 @@ async def log_subscriptions(
     authed: create_auth,identifiers: list = []
 ):
     print("Logging Users")
-    results = await authed.get_subscriptions(identifiers=identifiers,refresh= True)
-    expired = await authed.get_expired_subscriptions(identifiers=identifiers,refresh= True)
+    if(json_settings['jobs']['log_users']==1):
+        results = await authed.get_subscriptions(identifiers=identifiers,refresh= True)
+    elif(json_settings['jobs']['log_users']==2 or json_settings['jobs']['log_users']==4):
+        results = await authed.get_subscriptions(refresh= True)
+    else:
+        results=[]
+
+    if(json_settings['jobs']['log_users']==3 or json_settings['jobs']['log_users']==4):
+        expired = await authed.get_expired_subscriptions(identifiers=identifiers,refresh= True)
+    else:
+        expired=[]
+
     numOfWorkers=int(os.environ.get('NUM_SUB_WORKERS', 2))
     lists = await authed.get_lists()
     results=results+[e for e in expired if e.id not in [r.id for r in results]]
-    if blacklists:
+    
+    if json_settings['jobs']['log_users']==3 and blacklists:
         remote_blacklists = lists
         if remote_blacklists:
             for remote_blacklist in remote_blacklists:
@@ -1439,7 +1451,7 @@ async def log_subscriptions(
     #         qIdx=0
 
             
-    for lst in [f for f in lists if ((whitelists=='' and (f.get('type')=='custom' or f.get('type')=='bookmarks' or f.get('type')=='following')) or f.get('name') in whitelists) and f.get('name') not in blacklists]:
+    for lst in [f for f in lists if (json_settings['jobs']['log_users']>1 or (whitelists=='' and (f.get('type')=='custom' or f.get('type')=='bookmarks' or f.get('type')=='following')) or f.get('name') in whitelists) and f.get('name') not in blacklists]:
         for user in await authed.get_lists_users(lst.get('id')):
             if(user.get('id') in [r.id for r in results]):
                 continue
@@ -1525,7 +1537,7 @@ async def log_subscriptions(
     #     task.cancel()
 
     print('====')
-    print(f'workers ran in parallel for {total_slept_for:.2f} seconds')
+    print(f'workers processed {len(results)} users in parallel for {total_slept_for:.2f} seconds')
     
     db_helper.FlushDatabase(database_session,0)
     database_session.close()
@@ -1580,7 +1592,8 @@ async def LogList(authed, results, database_session, user_table, lst):
 async def manage_subscriptions(
     authed: create_auth, auth_count=0, identifiers: list = [], refresh: bool = True
 ):
-    await log_subscriptions(authed,identifiers=identifiers)
+    if(json_settings['jobs']['log_users']>0):
+        await log_subscriptions(authed,identifiers=identifiers)
     # await log_subscriptions(authed)
 
     print("Loading Subscriptions")

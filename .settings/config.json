@@ -6,7 +6,7 @@
     "auto_site_choice": "onlyfans",
     "export_type": "json",
     "profile_directories": [
-      "/app/data/.profiles"
+      ".profiles"
     ],
     "max_threads": -1,
     "min_drive_space": 0,
@@ -59,7 +59,9 @@
           "auth": true
         },
         "jobs": {
+          "scrape_content": true,
           "scrape_names": true,
+          "log_users":1,
           "scrape_paid_content": true
         },
         "download_directories": [

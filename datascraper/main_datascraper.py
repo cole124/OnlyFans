@@ -85,23 +85,24 @@ async def start_datascraper(
         subscription_list = module.format_options(
             subscription_array, "usernames", api.auths
         )
-        if jobs["scrape_paid_content"] and api.has_active_auths():
-            print("Scraping Paid Content")
-            await module.paid_content_scraper(api, identifiers)
-        if jobs["scrape_names"] and api.has_active_auths():
-            print("Scraping Subscriptions")
-            await main_helper.process_names(
-                module,
-                subscription_list,
-                auto_model_choice,
-                api,
-                json_config,
-                site_name_lower,
-                site_name,
-            )
-        await main_helper.process_downloads(api, module)
-        if webhooks:
-            await main_helper.process_webhooks(api, "download_webhook", "succeeded")
+        if jobs["scrape_content"] and api.has_active_auths():
+            if jobs["scrape_paid_content"] and api.has_active_auths():
+                print("Scraping Paid Content")
+                await module.paid_content_scraper(api, identifiers)
+            if jobs["scrape_names"] and api.has_active_auths():
+                print("Scraping Subscriptions")
+                await main_helper.process_names(
+                    module,
+                    subscription_list,
+                    auto_model_choice,
+                    api,
+                    json_config,
+                    site_name_lower,
+                    site_name,
+                )
+            await main_helper.process_downloads(api, module)
+            if webhooks:
+                await main_helper.process_webhooks(api, "download_webhook", "succeeded")
     elif site_name_lower == "starsavn":
         pass
         # site_name = "StarsAVN"

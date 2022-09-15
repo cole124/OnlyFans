@@ -126,6 +126,10 @@ class config(object):
 
                         class jobs:
                             def __init__(self, option={}) -> None:
+                                self.scrape_content = option.get(
+                                    'scrape_content', True)
+                                self.log_users = option.get(
+                                    'log_users', 1)
                                 self.scrape_names = option.get(
                                     'scrape_names', True)
                                 self.scrape_paid_content = option.get(
