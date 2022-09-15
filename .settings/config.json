@@ -6,7 +6,7 @@
     "auto_site_choice": "onlyfans",
     "export_type": "json",
     "profile_directories": [
-      ".profiles"
+      "data/.profiles"
     ],
     "max_threads": -1,
     "min_drive_space": 0,
