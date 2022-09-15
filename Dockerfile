@@ -19,7 +19,7 @@ ENV SQL_PASS "Jnmjvt20!"
 ENV SQL_DATABASE "vue_data"
 ENV NUM_SUB_WORKERS 3
 ENV LogSubscriptions -1
-ENV SCRAPE_MEDIA True
+ENV SCRAPE_MEDIA true
 
 # RUN apt-get update \
 #  && apt-get install unixodbc -y \

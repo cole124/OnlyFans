@@ -621,7 +621,7 @@ def export_sqlite(database_path: str, api_type, datas, userId):
         for media in post["medias"]:
             if (media["media_type"] != "Videos" and media["media_type"] != "Images") or media["media_id"] in medias:
                 continue
-            
+
             created_at = media.get("created_at", postedAt)
             if not isinstance(created_at, datetime):
                 date_object = datetime.strptime(created_at, "%d-%m-%Y %H:%M:%S")
@@ -904,7 +904,7 @@ def process_supported(json_settings, args):
     if(args.log_users>-1):
         json_settings['onlyfans']['settings']['jobs']['log_users'] = args.log_users
 
-    json_settings['onlyfans']['settings']['jobs']['scrape_content'] = args.scrape_media
+    json_settings['onlyfans']['settings']['jobs']['scrape_content'] = not args.skip_media and os.environ.get('SCRAPE_MEDIA', "true")=="true"
 
 
     if(len(args.blacklist) > 0):
