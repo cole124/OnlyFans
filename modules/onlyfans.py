@@ -6,7 +6,7 @@ import json
 import os
 import shutil
 import csv
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from itertools import product
 from types import SimpleNamespace
 from typing import Any, Optional, Union
@@ -1476,7 +1476,10 @@ async def log_subscriptions(
         if(not isinstance(u,create_user)):
             u=create_user(res)
 
-        subscribed=getattr(u,"subscribedByData",None) is not None
+        subscribed=0
+        if getattr(u,"subscribedByData",None) is not None:
+            subscribed=u.subscribedByData.get("expiredAt") is None or datetime.strptime(u.subscribedByData["expiredAt"],"%Y-%m-%dT%H:%M:%S%z")>datetime.now(timezone.utc)
+
         lists=u.custom_lists
         current_price = getattr(u,"subscribePrice",0)
         if getattr(u,"promoOffers",None) != None:
