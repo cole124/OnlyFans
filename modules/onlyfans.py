@@ -1497,12 +1497,13 @@ async def log_subscriptions(
         user_db=db_result.filter_by(userId=uID).first()
         if not user_db:
             user_db=user_table()
+            user_db.userId=uID
 
-        user_db.userId=uID
         user_db.username=u.username
         user_db.name=u.name
 
         database_session.add(user_db)
+        db_helper.FlushDatabase(database_session,0)
 
         db_result2 = database_session.query(user_sub_table)
         userSub_db=db_result2.filter_by(userId=uID,username=authed.name).first()
@@ -1519,6 +1520,7 @@ async def log_subscriptions(
         userSub_db.Lists=lists
 
         database_session.add(userSub_db)
+        db_helper.FlushDatabase(database_session,0)
 
     print(f"Starting workers")
     started_at = time.monotonic()
@@ -1539,7 +1541,7 @@ async def log_subscriptions(
     print('====')
     print(f'workers processed {len(results)} users in parallel for {total_slept_for:.2f} seconds')
     
-    db_helper.FlushDatabase(database_session,0)
+    # db_helper.FlushDatabase(database_session,0)
     database_session.close()
 
 async def LogList(authed, results, database_session, user_table, lst):
