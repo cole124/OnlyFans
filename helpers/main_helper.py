@@ -585,9 +585,9 @@ def export_sqlite(database_path: str, api_type, datas, userId):
     medias = [value[0] for value in database_session.query(database.media_table).with_entities(
         database.media_table.media_id, database.media_table.user_id).filter(database.media_table.user_id == userId and database.media_table.media_type=='Videos')]
     for post in datas:
-        if post["post_id"] in posts:
-            continue
         post_id = post["post_id"]
+        # if post_id in posts:
+        #     continue
         postedAt = post["postedAt"]
         date_object = None
         if postedAt:
@@ -619,7 +619,7 @@ def export_sqlite(database_path: str, api_type, datas, userId):
         db_helper.FlushDatabase(database_session,0)
 
         for media in post["medias"]:
-            if (media["media_type"] != "Videos" and media["media_type"] != "Images") or media["media_id"] in medias:
+            if (media["media_type"] != "Videos" and media["media_type"] != "Images"):
                 continue
 
             created_at = media.get("created_at", postedAt)
