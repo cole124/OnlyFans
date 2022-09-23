@@ -37,11 +37,15 @@ def create_mysql_database_session() -> tuple[scoped_session, Engine]:
     kwargs["max_overflow"] = -1
     kwargs["isolation_level"] = "READ COMMITTED"
 
-    kwargs["ssl_ca"]="/app/DigiCertGlobalRootCA.crt.pem"
+    # kwargs["ssl"]={"ssl_ca":"DigiCertGlobalRootCA.crt.pem"}
 
-    engine = sqlalchemy.create_engine(
-        "mysql+mysqlconnector://{}:{}@{}:{}/{}".format(os.environ.get('SQL_USER','python'),os.environ.get('SQL_PASS', 'Jnmjvt20!'),os.environ.get('sqladd', '192.168.1.128'),os.environ.get('sqlport', 3306),os.environ.get('SQL_DATABASE','vue_data')), **kwargs
-    )
+    sqlUrl = sqlalchemy.engine.url.URL(drivername="mysql+mysqlconnector",username=os.environ.get('SQL_USER','python'),password=os.environ.get('SQL_PASS', 'Jnmjvt20!'),host=os.environ.get('sqladd', 'shackleton-mysql.mysql.database.azure.com'),port=os.environ.get('sqlport', 3306),database=os.environ.get('SQL_DATABASE','vue_data'),query={"ssl_ca": "DigiCertGlobalRootCA.crt.pem"})
+
+    engine = sqlalchemy.create_engine(sqlUrl, **kwargs)
+
+    # engine = sqlalchemy.create_engine(
+    #     "mysql+mysqlconnector://{}:{}@{}:{}/{}?ssl=true".format(os.environ.get('SQL_USER','python'),os.environ.get('SQL_PASS', 'Jnmjvt20!'),os.environ.get('sqladd', 'shackleton-mysql.mysql.database.azure.com'),os.environ.get('sqlport', 3306),os.environ.get('SQL_DATABASE','vue_data')), **kwargs
+    # )
     session_factory = sessionmaker(bind=engine, autocommit=True,autoflush=False)
     Session = scoped_session(session_factory)
     return Session, engine
