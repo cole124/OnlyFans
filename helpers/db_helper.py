@@ -37,6 +37,8 @@ def create_mysql_database_session() -> tuple[scoped_session, Engine]:
     kwargs["max_overflow"] = -1
     kwargs["isolation_level"] = "READ COMMITTED"
 
+    kwargs["ssl_ca"]="/app/DigiCertGlobalRootCA.crt.pem"
+
     engine = sqlalchemy.create_engine(
         "mysql+mysqlconnector://{}:{}@{}:{}/{}".format(os.environ.get('SQL_USER','python'),os.environ.get('SQL_PASS', 'Jnmjvt20!'),os.environ.get('sqladd', '192.168.1.128'),os.environ.get('sqlport', 3306),os.environ.get('SQL_DATABASE','vue_data')), **kwargs
     )
