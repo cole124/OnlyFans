@@ -899,18 +899,18 @@ async def prepare_scraper(authed: create_auth, site_name, item):
         # )
         # new_metadata = new_metadata + old_metadata
         subscription.set_scraped(api_type, new_metadata)
-        # await process_metadata(
-        #     authed,
-        #     metadata_path,
-        #     legacy_metadata_path,
-        #     new_metadata,
-        #     site_name,
-        #     api_type,
-        #     subscription,
-        #     []
-        #     # delete_metadatas,
-        # )
-        # print("Finished processing metadata.")
+        await process_metadata(
+            authed,
+            metadata_path,
+            legacy_metadata_path,
+            new_metadata,
+            site_name,
+            api_type,
+            subscription,
+            []
+            # delete_metadatas,
+        )
+        print("Finished processing metadata.")
     else:
         print("No " + api_type + " Found.")
     return True
