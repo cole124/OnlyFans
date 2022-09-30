@@ -78,16 +78,7 @@
         "video_quality": "source",
         "overwrite_files": true,
         "date_format": "%Y%m%d",
-        "ignored_keywords": [
-          "tell her ",
-          "@",
-          "trans",
-          "mention me",
-          "dick rate",
-          "her page ",
-          "films it ",
-          "follow her "
-        ],
+        "ignored_keywords": [],
         "ignore_type": "",
         "blacklists": "Ignored",
         "whitelists": "",
