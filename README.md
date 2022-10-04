@@ -12,6 +12,8 @@ Build and run the image, mounting the appropriate directories:
 
 `docker build -t only-fans . && docker run -it --rm --name onlyfans -v ${PWD}/.settings:/usr/src/app/.settings -v ${PWD}/.profiles:/usr/src/app/.profiles -v ${PWD}/.sites:/usr/src/app/.sites only-fans`
 
+`docker-compose down && docker-compose pull && docker-compose up --no-start`
+
 ## Running on Linux
 
 https://github.com/DIGITALCRIMINAL/OnlyFans/discussions/889

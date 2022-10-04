@@ -280,7 +280,7 @@ class create_auth(create_user):
                 valid_subscriptions: list[create_user] = []
                 extras = {}
                 extras["auth_check"] = ""
-                if isinstance(subscriptions, error_details):
+                if isinstance(subscriptions, error_details) or subscriptions is None:
                     return
                 subscriptions = [
                     subscription
