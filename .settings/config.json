@@ -40,8 +40,8 @@
         }
       }
     },
-    "exit_on_completion": true,
-    "infinite_loop": false,
+    "exit_on_completion": false,
+    "infinite_loop": true,
     "loop_timeout": "600",
     "dynamic_rules_link": "https://raw.githubusercontent.com/DATAHOARDERS/dynamic-rules/main/onlyfans.json",
     "proxies": [],

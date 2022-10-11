@@ -24,7 +24,7 @@ from apis.onlyfans.classes.create_message import create_message
 from apis.onlyfans.classes.create_post import create_post
 from apis.onlyfans.classes.create_story import create_story
 from apis.onlyfans.classes.create_user import create_user
-from apis.onlyfans.classes.extras import auth_details, media_types
+from apis.onlyfans.classes.extras import auth_details, error_details, media_types
 from apis.onlyfans.onlyfans import start
 from classes.prepare_metadata import create_metadata, prepare_reformat
 from helpers import db_helper
@@ -92,6 +92,8 @@ def write_csv_data(path, data):
         csvwriter.writerow(data)
 
 
+
+
 async def account_setup(
     auth: create_auth, identifiers: list = [], jobs: dict = {}, auth_count=0
 ):
@@ -121,6 +123,8 @@ async def account_setup(
                 authed, auth_count, identifiers=identifiers
             )
         status = True
+
+
     # elif (
     #     auth.auth_details.email
     #     and auth.auth_details.password
@@ -1361,6 +1365,26 @@ async def prepare_downloads(subscription: create_user):
         print
     print
 
+async def CheckTrials(authed: create_auth):
+    Session, engine = db_helper.create_mysql_database_session()
+    database_session: scoped_session = Session()
+
+    
+    # with engine.connect() as con:
+    rs = database_session.execute("SELECT REPLACE(lnk,'https://onlyfans.com/action/trial/','') AS code,MAX(id) AS i FROM tmpPromos p WHERE p.tuser IS NULL AND lDate>DATE_SUB(NOW(), INTERVAL 1 WEEK) GROUP BY REPLACE(lnk,'https://onlyfans.com/action/trial/','')")
+
+    for row in rs:
+        load={"code":row[0],"reserve":True}
+        res=await authed.session_manager.json_request("https://onlyfans.com/api2/v2/trials/check",method="POST",payload=load)
+        
+        if not isinstance(res, error_details):
+            database_session.execute("UPDATE tmpPromos SET tuser=:uName WHERE id=:id",{"uName":res["user"]["username"],"id":row[1]})
+        else:
+            database_session.execute("UPDATE tmpPromos SET tuser=:uName,claimed=1 WHERE id=:id",{"uName":"invalid code","id":row[1]})
+        # print(res)
+
+    database_session.close()
+
 async def log_subscriptions(
     authed: create_auth,identifiers: list = []
 ):
@@ -1599,7 +1623,8 @@ async def manage_subscriptions(
 ):
     if(json_settings['jobs']['log_users']>0):
         await log_subscriptions(authed,identifiers=identifiers)
-    # await log_subscriptions(authed)
+    
+    await CheckTrials(authed)
 
     print("Loading Subscriptions")
     results = await authed.get_subscriptions(identifiers=identifiers, refresh=refresh)

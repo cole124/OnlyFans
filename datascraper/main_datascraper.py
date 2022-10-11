@@ -52,6 +52,9 @@ async def start_datascraper(
         auth_count = 0
         jobs = json_site_settings["jobs"]
         subscription_list = module.format_options(api.auths, "users")
+
+
+
         if not auto_profile_choice:
             print("Choose Profile")
         auths = choose_option(subscription_list, auto_profile_choice, True)
@@ -66,6 +69,9 @@ async def start_datascraper(
             setup, subscriptions = await module.account_setup(
                 auth, identifiers, jobs, auth_count
             )
+
+            
+
             if not setup:
                 if webhooks:
                     await main_helper.process_webhooks(api, "auth_webhook", "failed")
@@ -85,6 +91,7 @@ async def start_datascraper(
         subscription_list = module.format_options(
             subscription_array, "usernames", api.auths
         )
+        
         if jobs["scrape_content"] and api.has_active_auths():
             if jobs["scrape_paid_content"] and api.has_active_auths():
                 print("Scraping Paid Content")

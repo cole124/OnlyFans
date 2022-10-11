@@ -561,7 +561,6 @@ def legacy_sqlite_updater(
         database_session.close()
     return final_result, delete_metadatas
 
-
 def export_sqlite(database_path: str, api_type, datas, userId):
     # metadata_directory = os.path.dirname(database_path)
     # os.makedirs(metadata_directory, exist_ok=True)
