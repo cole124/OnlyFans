@@ -1405,7 +1405,7 @@ async def log_subscriptions(
     lists = await authed.get_lists()
     results=results+[e for e in expired if e.id not in [r.id for r in results]]
     
-    if json_settings['jobs']['log_users']==3 and blacklists:
+    if json_settings['jobs']['log_users']==1 and blacklists:
         remote_blacklists = lists
         if remote_blacklists:
             for remote_blacklist in remote_blacklists:
@@ -1475,7 +1475,7 @@ async def log_subscriptions(
     #         qIdx=0
 
             
-    for lst in [f for f in lists if (json_settings['jobs']['log_users']>1 or (whitelists=='' and (f.get('type')=='custom' or f.get('type')=='bookmarks' or f.get('type')=='following')) or f.get('name') in whitelists) and f.get('name') not in blacklists]:
+    for lst in [f for f in lists if (json_settings['jobs']['log_users']>1 or (whitelists=='' and (f.get('type')=='custom' or f.get('type')=='bookmarks' or f.get('type')=='following')) or f.get('name') in whitelists) and (f.get('name') not in blacklists or json_settings['jobs']['log_users']==4)]:
         for user in await authed.get_lists_users(lst.get('id')):
             if(user.get('id') in [r.id for r in results]):
                 continue
@@ -1627,7 +1627,7 @@ async def manage_subscriptions(
     await CheckTrials(authed)
 
     print("Loading Subscriptions")
-    results = await authed.get_subscriptions(identifiers=identifiers, refresh=refresh)
+    results = await authed.get_subscriptions(identifiers=identifiers, refresh=refresh or json_settings['jobs']['log_users']>1)
     
     # with mysql.connector.connect(host=os.environ.get('sqladd', '192.168.1.128'), user=os.environ.get('SQL_USER','python'), password=os.environ.get('SQL_PASS', 'Jnmjvt20!'), database=os.environ.get('SQL_DATABASE','vue_data'), port=int(os.environ.get('sqlport', 3306))) as conn:
         # cur = conn.cursor()
