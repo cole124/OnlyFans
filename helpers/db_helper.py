@@ -36,6 +36,7 @@ def create_mysql_database_session() -> tuple[scoped_session, Engine]:
     kwargs["pool_pre_ping"] = True
     kwargs["max_overflow"] = -1
     kwargs["isolation_level"] = "READ COMMITTED"
+    kwargs["autocommit"] = True
 
     # kwargs["ssl"]={"ssl_ca":"DigiCertGlobalRootCA.crt.pem"}
 

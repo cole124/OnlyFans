@@ -1495,7 +1495,7 @@ async def log_subscriptions(
             uID=res.id
         else:
             u = await authed.get_user(res.get("id"))
-            uID=res.get("id")
+            uID=res.get()
 
         if(not isinstance(u,create_user)):
             u=create_user(res)
