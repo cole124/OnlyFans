@@ -67,7 +67,7 @@
         "download_directories": [
           "data"
         ],
-        "file_directory_format": "{model_username}\\{media_type}",
+        "file_directory_format": "{model_username}/{media_type}",
         "filename_format": "{date}_{filename}.{ext}",
         "metadata_directories": [
           "data"
