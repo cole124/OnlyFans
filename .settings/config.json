@@ -14,7 +14,7 @@
     "helpers": {
       "renamer": false,
       "reformat_media": false,
-      "downloader": false,
+      "downloader": true,
       "delete_empty_directories": true
     },
     "webhooks": {
@@ -65,12 +65,12 @@
           "scrape_paid_content": true
         },
         "download_directories": [
-          "/tmp"
+          "data"
         ],
         "file_directory_format": "{model_username}\\{media_type}",
         "filename_format": "{date}_{filename}.{ext}",
         "metadata_directories": [
-          "/tmp"
+          "data"
         ],
         "metadata_directory_format": "{model_username}",
         "delete_legacy_metadata": false,
