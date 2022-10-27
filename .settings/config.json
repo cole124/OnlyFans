@@ -60,14 +60,14 @@
         },
         "jobs": {
           "scrape_content": true,
+          "log_users": 1,
           "scrape_names": true,
-          "log_users":1,
           "scrape_paid_content": true
         },
         "download_directories": [
           "/tmp"
         ],
-        "file_directory_format": "{model_username}/{media_type}",
+        "file_directory_format": "{model_username}\\{media_type}",
         "filename_format": "{date}_{filename}.{ext}",
         "metadata_directories": [
           "/tmp"

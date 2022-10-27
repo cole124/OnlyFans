@@ -26,6 +26,7 @@ class template_media_table:
     duration = sqlalchemy.Column(sqlalchemy.Integer, default=0)
     width = cast(int, sqlalchemy.Column(sqlalchemy.Integer, default=None))
     height = cast(int, sqlalchemy.Column(sqlalchemy.Integer, default=None))
+    auth_profile = cast(str, sqlalchemy.Column(sqlalchemy.String))
 
     def legacy(self, Base):
         class legacy_media_table(Base):

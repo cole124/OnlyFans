@@ -1200,6 +1200,7 @@ async def media_scraper(
             #     new_media["bookmarked"] = new_post["isAddedToBookmarks"]
             # else:
             #     new_media["bookmarked"] = False
+            new_media["auth_profile"]=os.path.basename(authed.profile_directory)
             new_media["media_type"] = media_type
             new_media["preview"] = False
             new_media["created_at"] = new_post["postedAt"]

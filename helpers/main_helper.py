@@ -648,10 +648,12 @@ def export_sqlite(database_path: str, api_type, datas, userId):
                 media_db.size = media["size"]
                 media_db.downloaded = media["downloaded"]
             media_db.link = media["links"][0]
+            # media_db.account=auth.
             media_db.preview = media.get("preview", False)
             media_db.directory = media["directory"]
             media_db.filename = media["filename"]
             media_db.api_type = api_type
+            media_db.auth_profile=media["auth_profile"]
             media_db.media_type = media["media_type"]
             media_db.linked = media.get("linked", None)
             media_db.duration = media.get("duration", 0)
