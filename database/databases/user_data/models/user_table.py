@@ -10,7 +10,7 @@ LegacyBase = declarative_base()
 
 
 class user_table:
-    __tablename__ = "Users"
+    __tablename__ = "users"
     __table_args__ = {
         'implicit_returning': False
     }

@@ -10,7 +10,7 @@ LegacyBase = declarative_base()
 
 
 class user_subscription_table:
-    __tablename__ = "UserSubscriptions"
+    __tablename__ = "usersubscriptions"
     __table_args__ = {
         'implicit_returning': False
     }
