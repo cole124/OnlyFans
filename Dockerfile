@@ -20,6 +20,7 @@ ENV SQL_DATABASE "vue_data"
 ENV NUM_SUB_WORKERS 3
 ENV LogSubscriptions -1
 ENV SCRAPE_MEDIA true
+ENV SQL_SSL_DISABLED True
 
 # RUN apt-get update \
 #  && apt-get install unixodbc -y \

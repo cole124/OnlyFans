@@ -14,7 +14,7 @@
     "helpers": {
       "renamer": false,
       "reformat_media": false,
-      "downloader": false,
+      "downloader": true,
       "delete_empty_directories": true
     },
     "webhooks": {

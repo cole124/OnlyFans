@@ -36,11 +36,17 @@ def create_mysql_database_session() -> tuple[scoped_session, Engine]:
     kwargs["pool_pre_ping"] = True
     kwargs["max_overflow"] = -1
     kwargs["isolation_level"] = "READ COMMITTED"
+
+    queryObj={}
+    if(not bool(os.environ.get('SQL_SSL_DISABLED',"False"))):
+        queryObj["ssl_disabled"]=False
+        queryObj["ssl_ca"]=os.environ.get('SQL_SSL_CA',"DigiCertGlobalRootCA.crt.pem")
     
 
     # kwargs["ssl"]={"ssl_ca":"DigiCertGlobalRootCA.crt.pem"}
 
-    sqlUrl = sqlalchemy.engine.url.URL(drivername="mysql+mysqlconnector",username=os.environ.get('SQL_USER','python'),password=os.environ.get('SQL_PASS', 'Jnmjvt20!'),host=os.environ.get('sqladd', 'shackleton-mysql.mysql.database.azure.com'),port=os.environ.get('sqlport', 3306),database=os.environ.get('SQL_DATABASE','vue_data'),query={"ssl_ca": "DigiCertGlobalRootCA.crt.pem"})
+    # sqlUrl = sqlalchemy.engine.url.URL(drivername="mysql+mysqlconnector",username=os.environ.get('SQL_USER','python'),password=os.environ.get('SQL_PASS', 'Jnmjvt20!'),host=os.environ.get('sqladd', 'shackleton-mysql.mysql.database.azure.com'),port=os.environ.get('sqlport', 3306),database=os.environ.get('SQL_DATABASE','vue_data'),query={"ssl_ca": "DigiCertGlobalRootCA.crt.pem"})
+    sqlUrl = sqlalchemy.engine.url.URL(drivername="mysql+mysqlconnector",username=os.environ.get('SQL_USER','python'),password=os.environ.get('SQL_PASS', 'Jnmjvt20!'),host=os.environ.get('sqladd', 'shackleton-mysql.mysql.database.azure.com'),port=os.environ.get('sqlport', 3306),database=os.environ.get('SQL_DATABASE','vue_data'),query=queryObj)
 
     engine = sqlalchemy.create_engine(sqlUrl, **kwargs)
 
