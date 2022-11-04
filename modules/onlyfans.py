@@ -1372,16 +1372,16 @@ async def CheckTrials(authed: create_auth):
 
     
     # with engine.connect() as con:
-    rs = database_session.execute("SELECT REPLACE(lnk,'https://onlyfans.com/action/trial/','') AS code,MAX(id) AS i FROM tmpPromos p WHERE p.tuser IS NULL AND lDate>DATE_SUB(NOW(), INTERVAL 1 WEEK) GROUP BY REPLACE(lnk,'https://onlyfans.com/action/trial/','')")
+    rs = database_session.execute("SELECT REPLACE(lnk,'https://onlyfans.com/action/trial/','') AS code,MAX(id) AS i FROM tmppromos p WHERE p.tuser IS NULL AND lDate>DATE_SUB(NOW(), INTERVAL 1 WEEK) GROUP BY REPLACE(lnk,'https://onlyfans.com/action/trial/','')")
 
     for row in rs:
         load={"code":row[0],"reserve":True}
         res=await authed.session_manager.json_request("https://onlyfans.com/api2/v2/trials/check",method="POST",payload=load)
         
         if not isinstance(res, error_details):
-            database_session.execute("UPDATE tmpPromos SET tuser=:uName WHERE id=:id",{"uName":res["user"]["username"],"id":row[1]})
+            database_session.execute("UPDATE tmppromos SET tuser=:uName WHERE id=:id",{"uName":res["user"]["username"],"id":row[1]})
         else:
-            database_session.execute("UPDATE tmpPromos SET tuser=:uName,claimed=1 WHERE id=:id",{"uName":"invalid code","id":row[1]})
+            database_session.execute("UPDATE tmppromos SET tuser=:uName,claimed=1 WHERE id=:id",{"uName":"invalid code","id":row[1]})
         # print(res)
 
     database_session.close()
