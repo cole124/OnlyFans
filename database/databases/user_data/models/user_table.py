@@ -23,7 +23,7 @@ class user_table:
     promo_price = cast(float, sqlalchemy.Column(sqlalchemy.DECIMAL))
     # renewal_date = cast(datetime, sqlalchemy.Column(sqlalchemy.TIMESTAMP))
     subscribed = cast(bool, sqlalchemy.Column(sqlalchemy.Integer, default=0))
-    Lists = sqlalchemy.Column(sqlalchemy.String)
+    # Lists = sqlalchemy.Column(sqlalchemy.String)
 
 
 
