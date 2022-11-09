@@ -1602,7 +1602,7 @@ async def LogList(authed, results, database_session, user_table, lst):
         user_db.subscribed=subscribed
         user_db.subscription_price=user.get('subscribePrice')
         user_db.promo_price=current_price
-        user_db.renewal_date=user.get('renewedAt')
+        
         user_db.Lists=getattr(u,'custom_lists',getattr(u,'message',''))
 
 

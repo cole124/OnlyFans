@@ -21,7 +21,7 @@ class user_table:
     name = sqlalchemy.Column(sqlalchemy.String(convert_unicode=True))
     subscription_price = cast(float, sqlalchemy.Column(sqlalchemy.DECIMAL))
     promo_price = cast(float, sqlalchemy.Column(sqlalchemy.DECIMAL))
-    renewal_date = cast(datetime, sqlalchemy.Column(sqlalchemy.TIMESTAMP))
+    # renewal_date = cast(datetime, sqlalchemy.Column(sqlalchemy.TIMESTAMP))
     subscribed = cast(bool, sqlalchemy.Column(sqlalchemy.Integer, default=0))
     Lists = sqlalchemy.Column(sqlalchemy.String)
 
