@@ -1628,7 +1628,7 @@ async def manage_subscriptions(
     await CheckTrials(authed)
 
     print("Loading Subscriptions")
-    results = await authed.get_subscriptions(identifiers=identifiers, refresh=refresh or json_settings['jobs']['log_users']>1)
+    results = await authed.get_subscriptions(identifiers=identifiers, refresh=refresh or json_settings['jobs']['log_users']>=1)
     
     # with mysql.connector.connect(host=os.environ.get('sqladd', '192.168.1.128'), user=os.environ.get('SQL_USER','python'), password=os.environ.get('SQL_PASS', 'Jnmjvt20!'), database=os.environ.get('SQL_DATABASE','vue_data'), port=int(os.environ.get('sqlport', 3306))) as conn:
         # cur = conn.cursor()
