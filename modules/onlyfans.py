@@ -1575,8 +1575,12 @@ async def log_subscriptions(
                                                            promo_price=sub[5],
                                                            renewal_date=sub[6],
                                                            Lists=sub[7])
-        insert_stmt=insert_stmt.on_duplicate_key_update(name=insert_stmt.inserted.name,subscribed=insert_stmt.inserted.subscribed,subscription_price=insert_stmt.inserted.subscription_price,
-                                                        promo_price=insert_stmt.inserted.promo_price,renewal_date=insert_stmt.inserted.renewal_date,Lists=insert_stmt.inserted.Lists)
+        insert_stmt=insert_stmt.on_duplicate_key_update(name=sub[2],
+                                                           subscribed=sub[3],
+                                                           subscription_price=sub[4],
+                                                           promo_price=sub[5],
+                                                           renewal_date=sub[6],
+                                                           Lists=sub[7])
         database_session.execute(insert_stmt)
     # database_session.add_all(usrs)
     
