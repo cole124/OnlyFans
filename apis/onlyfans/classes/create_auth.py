@@ -196,6 +196,8 @@ class create_auth(create_user):
                 print
             response["session_manager"] = self.session_manager
             response = create_user(response, self)
+        else:
+            print
         return response
 
     async def get_lists_users(

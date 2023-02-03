@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 import time
 from apis.api_helper import multiprocessing
 from database.databases.user_data.models.user_subcription_table import user_subscription_table
+from database.databases.user_data.user_database import user_subscriptions_table
 # import extras.OFLogin.start_ofl as oflogin
 import extras.OFRenamer.start_ofr as ofrenamer
 import helpers.db_helper as db_helper
@@ -31,6 +32,7 @@ from helpers import db_helper
 from mergedeep import Strategy, merge
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm.scoping import scoped_session
+from sqlalchemy.dialects.mysql import insert
 from tqdm.asyncio import tqdm
 import mysql.connector
 
@@ -1531,24 +1533,25 @@ async def log_subscriptions(
         user_db.name=u.name
 
         database_session.add(user_db)
-        db_helper.FlushDatabase(database_session,0)
+        # db_helper.FlushDatabase(database_session,0)
 
-        db_result2 = database_session.query(user_sub_table)
-        userSub_db=db_result2.filter_by(userId=uID,username=authed.name).first()
-        if not userSub_db:
-            userSub_db=user_sub_table()
-            userSub_db.userId=uID
-            userSub_db.username=authed.name
+        # db_result2 = database_session.query(user_sub_table)
+        # userSub_db=db_result2.filter_by(userId=uID,username=authed.name).first()
+        # if not userSub_db:
+        #     userSub_db=user_sub_table()
+        # userSub_db.userId=uID
+        # userSub_db.username=authed.name
         
-        userSub_db.name=u.name
-        userSub_db.subscribed=subscribed
-        userSub_db.subscription_price=u.subscribePrice
-        userSub_db.promo_price=current_price
-        userSub_db.renewal_date=u.subscribedByData['renewedAt'] if u.subscribedByData is not None else None
-        userSub_db.Lists=lists
+        # userSub_db.name=u.name
+        # userSub_db.subscribed=subscribed
+        # userSub_db.subscription_price=u.subscribePrice
+        # userSub_db.promo_price=current_price
+        # userSub_db.renewal_date=u.subscribedByData['renewedAt'] if u.subscribedByData is not None else None
+        # userSub_db.Lists=lists
 
-        database_session.add(userSub_db)
-        db_helper.FlushDatabase(database_session,0)
+        return [uID,authed.name,u.name,subscribed,subscribePrice,current_price,u.subscribedByData['renewedAt'] if u.subscribedByData is not None else None,lists]
+        # database_session.add(userSub_db)
+        # db_helper.FlushDatabase(database_session,0)
 
     print(f"Starting workers")
     started_at = time.monotonic()
@@ -1560,6 +1563,29 @@ async def log_subscriptions(
     tasks=pool.starmap(LogUser2, product(results))
     results3=[]
     results3 += await asyncio.gather(*tasks)
+
+    db_helper.FlushDatabase(database_session,0)
+    # usrs=list(zip(*results3))[0]
+    for sub in results3:
+        insert_stmt=insert(user_subscriptions_table).values(userId=sub[0],
+                                                           username=sub[1],
+                                                           name=sub[2],
+                                                           subscribed=sub[3],
+                                                           subscription_price=sub[4],
+                                                           promo_price=sub[5],
+                                                           renewal_date=sub[6],
+                                                           Lists=sub[7])
+        insert_stmt=insert_stmt.on_duplicate_key_update(name=insert_stmt.inserted.name,subscribed=insert_stmt.inserted.subscribed,subscription_price=insert_stmt.inserted.subscription_price,
+                                                        promo_price=insert_stmt.inserted.promo_price,renewal_date=insert_stmt.inserted.renewal_date,Lists=insert_stmt.inserted.Lists)
+        database_session.execute(insert_stmt)
+    # database_session.add_all(usrs)
+    
+
+    # for each in database_session.query(user_table).filter(users.userId.in_([u.userId for u in usrs])).all():
+    # # Only merge those posts which already exist in the database
+    #     database_session.merge(usrs.pop())
+    #     session.merge(my_new_posts.pop(each.id))
+
     total_slept_for = time.monotonic() - started_at
 
     # Cancel our worker tasks.
